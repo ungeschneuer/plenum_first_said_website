@@ -78,3 +78,4 @@ backend/backups/
 !.env.example
 .playwright-mcp/
 .claude/
+static-data*/

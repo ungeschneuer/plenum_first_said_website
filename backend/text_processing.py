@@ -9,12 +9,6 @@ import logging
 from typing import List, Dict, Tuple
 from collections import Counter, defaultdict
 
-try:
-    from enhanced_text_processing import analyze_word_enhanced, analyze_words_batch
-    NLP_AVAILABLE = True
-except ImportError:
-    NLP_AVAILABLE = False
-    logging.warning("Enhanced NLP processing not available")
 
 
 def find_beginn(text: str) -> str:
@@ -189,7 +183,13 @@ def count_word_frequencies_enhanced(text: str) -> Tuple[Dict[str, int], Dict[str
     """
     words = extract_words(text)
 
-    if not NLP_AVAILABLE:
+    try:
+        from enhanced_text_processing import analyze_words_batch
+    except ImportError:
+        logging.warning("Enhanced NLP processing not available")
+        analyze_words_batch = None
+
+    if analyze_words_batch is None:
         # Fallback to simple lowercase counting
         normalized_words = [normalize_word(word) for word in words]
         word_counts = Counter(normalized_words)
