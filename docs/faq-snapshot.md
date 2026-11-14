@@ -1,0 +1,123 @@
+- generic [ref=e3]:
+  - navigation [ref=e4]:
+    - generic [ref=e6]:
+      - link "Bundestag Wortschatz" [ref=e7] [cursor=pointer]:
+        - /url: /
+        - generic [ref=e8]: Bundestag Wortschatz
+      - generic [ref=e9]:
+        - link "Startseite" [ref=e10] [cursor=pointer]:
+          - /url: /
+        - link "Redner" [ref=e11] [cursor=pointer]:
+          - /url: /redner
+        - link "Parteien" [ref=e12] [cursor=pointer]:
+          - /url: /parteien
+        - link "Wahlperioden" [ref=e13] [cursor=pointer]:
+          - /url: /wahlperioden
+      - generic [ref=e15]:
+        - img [ref=e16]
+        - searchbox "Wort suchen..." [ref=e19]
+      - link "Admin" [ref=e21] [cursor=pointer]:
+        - /url: /admin/login
+  - main [ref=e22]:
+    - generic [ref=e55]:
+      - generic [ref=e56]:
+        - generic [ref=e57]:
+          - img [ref=e59]
+          - heading "Häufig gestellte Fragen" [level=1] [ref=e62]
+        - paragraph [ref=e63]: Hier finden Sie Antworten auf die häufigsten Fragen zum Bundestag Wort-Häufigkeits-Tracker.
+      - generic [ref=e66]:
+        - heading "Was ist der Bundestag Wort-Häufigkeits-Tracker?" [level=3] [ref=e68]:
+          - button "Was ist der Bundestag Wort-Häufigkeits-Tracker?" [ref=e69] [cursor=pointer]:
+            - text: Was ist der Bundestag Wort-Häufigkeits-Tracker?
+            - img [ref=e70]
+        - heading "Woher stammen die Daten?" [level=3] [ref=e73]:
+          - button "Woher stammen die Daten?" [ref=e74] [cursor=pointer]:
+            - text: Woher stammen die Daten?
+            - img [ref=e75]
+        - heading "Welche Wahlperioden sind verfügbar?" [level=3] [ref=e78]:
+          - button "Welche Wahlperioden sind verfügbar?" [ref=e79] [cursor=pointer]:
+            - text: Welche Wahlperioden sind verfügbar?
+            - img [ref=e80]
+        - heading "Wie funktioniert die Wortsuche?" [level=3] [ref=e83]:
+          - button "Wie funktioniert die Wortsuche?" [ref=e84] [cursor=pointer]:
+            - text: Wie funktioniert die Wortsuche?
+            - img [ref=e85]
+        - heading "Was bedeutet 'Erstverwendung'?" [level=3] [ref=e88]:
+          - button "Was bedeutet 'Erstverwendung'?" [ref=e89] [cursor=pointer]:
+            - text: Was bedeutet 'Erstverwendung'?
+            - img [ref=e90]
+        - heading "Wie wird die Worthäufigkeit berechnet?" [level=3] [ref=e93]:
+          - button "Wie wird die Worthäufigkeit berechnet?" [ref=e94] [cursor=pointer]:
+            - text: Wie wird die Worthäufigkeit berechnet?
+            - img [ref=e95]
+        - heading "Was ist Lemmatisierung?" [level=3] [ref=e98]:
+          - button "Was ist Lemmatisierung?" [ref=e99] [cursor=pointer]:
+            - text: Was ist Lemmatisierung?
+            - img [ref=e100]
+        - heading "Warum werden geschlechtsspezifische Formen getrennt erfasst?" [level=3] [ref=e103]:
+          - button "Warum werden geschlechtsspezifische Formen getrennt erfasst?" [ref=e104] [cursor=pointer]:
+            - text: Warum werden geschlechtsspezifische Formen getrennt erfasst?
+            - img [ref=e105]
+        - heading "Was sind 'neue Wörter' in einem Protokoll?" [level=3] [ref=e108]:
+          - button "Was sind 'neue Wörter' in einem Protokoll?" [ref=e109] [cursor=pointer]:
+            - text: Was sind 'neue Wörter' in einem Protokoll?
+            - img [ref=e110]
+        - heading "Wie werden Redner und Parteien zugeordnet?" [level=3] [ref=e113]:
+          - button "Wie werden Redner und Parteien zugeordnet?" [ref=e114] [cursor=pointer]:
+            - text: Wie werden Redner und Parteien zugeordnet?
+            - img [ref=e115]
+        - heading "Kann ich die Rohdaten herunterladen?" [level=3] [ref=e118]:
+          - button "Kann ich die Rohdaten herunterladen?" [ref=e119] [cursor=pointer]:
+            - text: Kann ich die Rohdaten herunterladen?
+            - img [ref=e120]
+        - heading "Wie aktuell sind die Daten?" [level=3] [ref=e123]:
+          - button "Wie aktuell sind die Daten?" [ref=e124] [cursor=pointer]:
+            - text: Wie aktuell sind die Daten?
+            - img [ref=e125]
+        - heading "Welche Technologien werden verwendet?" [level=3] [ref=e128]:
+          - button "Welche Technologien werden verwendet?" [ref=e129] [cursor=pointer]:
+            - text: Welche Technologien werden verwendet?
+            - img [ref=e130]
+        - heading "Kann ich zur Entwicklung beitragen?" [level=3] [ref=e133]:
+          - button "Kann ich zur Entwicklung beitragen?" [ref=e134] [cursor=pointer]:
+            - text: Kann ich zur Entwicklung beitragen?
+            - img [ref=e135]
+        - heading "Gibt es eine API für Entwickler?" [level=3] [ref=e138]:
+          - button "Gibt es eine API für Entwickler?" [ref=e139] [cursor=pointer]:
+            - text: Gibt es eine API für Entwickler?
+            - img [ref=e140]
+      - generic [ref=e143]:
+        - generic [ref=e144]: Weitere Fragen?
+        - generic [ref=e145]:
+          - text: Wenn Ihre Frage hier nicht beantwortet wurde, kontaktieren Sie uns gerne über die im
+          - link "Impressum" [ref=e146] [cursor=pointer]:
+            - /url: /impressum
+          - text: angegebenen Kontaktdaten.
+  - contentinfo [ref=e31]:
+    - generic [ref=e32]:
+      - generic [ref=e33]:
+        - generic [ref=e34]:
+          - heading "Bundestag Wortschatz" [level=3] [ref=e35]
+          - paragraph [ref=e36]: Tracking the evolution of political language in the German Bundestag.
+        - generic [ref=e37]:
+          - heading "Information" [level=3] [ref=e38]
+          - list [ref=e39]:
+            - listitem [ref=e40]:
+              - link "FAQ" [ref=e41] [cursor=pointer]:
+                - /url: /faq
+            - listitem [ref=e42]:
+              - link "Impressum" [ref=e43] [cursor=pointer]:
+                - /url: /impressum
+            - listitem [ref=e44]:
+              - link "Datenschutz" [ref=e45] [cursor=pointer]:
+                - /url: /datenschutz
+        - generic [ref=e46]:
+          - heading "Quellcode" [level=3] [ref=e47]
+          - link "View on GitHub" [ref=e48] [cursor=pointer]:
+            - /url: https://github.com
+            - img [ref=e49]
+            - text: View on GitHub
+      - generic [ref=e52]:
+        - paragraph [ref=e53]: 2026 Bundestag Wortschatz. All rights reserved.
+        - paragraph [ref=e54]: Data sourced from official Bundestag protocols.
+  - region "Notifications alt+T"

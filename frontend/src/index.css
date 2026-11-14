@@ -1,0 +1,119 @@
+@import "tailwindcss";
+
+@theme {
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --radius-lg: var(--radius);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-sm: calc(var(--radius) - 4px);
+}
+
+@layer base {
+  :root {
+    /* German Federal Theme - Professional (Light Mode) */
+    --background: 0 0% 98%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 0 0% 0%;           /* Black - Bundestag official */
+    --primary-foreground: 0 0% 98%;
+    --secondary: 45 100% 51%;      /* Gold - Bundestag accent */
+    --secondary-foreground: 0 0% 0%;
+    --muted: 210 40% 96.1%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 45 100% 51%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 0 0% 0%;
+    --radius: 0.5rem;
+  }
+
+  .dark {
+    /* Dark Mode Theme */
+    --background: 0 0% 3.9%;       /* #0a0a0a */
+    --foreground: 0 0% 88%;        /* #e0e0e0 */
+    --card: 0 0% 10%;              /* #1a1a1a */
+    --card-foreground: 0 0% 88%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 88%;
+    --primary: 45 100% 51%;        /* Gold - stands out in dark */
+    --primary-foreground: 0 0% 9%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 88%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 53.3%;  /* #888888 */
+    --accent: 45 100% 51%;
+    --accent-foreground: 0 0% 9%;
+    --destructive: 0 62.8% 50.6%;
+    --destructive-foreground: 0 0% 88%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 45 100% 51%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-feature-settings: "rlig" 1, "calt" 1;
+  }
+}
+
+@layer utilities {
+  /* Screen reader only - visually hidden but accessible to screen readers */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border-width: 0;
+  }
+
+  /* Skip link - visible on focus */
+  .skip-link {
+    position: absolute;
+    top: -40px;
+    left: 0;
+    background: hsl(var(--primary));
+    color: hsl(var(--primary-foreground));
+    padding: 8px 16px;
+    text-decoration: none;
+    border-radius: 0 0 4px 0;
+    z-index: 100;
+  }
+
+  .skip-link:focus {
+    top: 0;
+  }
+}
