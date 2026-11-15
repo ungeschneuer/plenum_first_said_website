@@ -5,8 +5,10 @@ Output layout (below --output):
   shards.json         list of shard keys; a lemma lives in the longest key that prefixes its folded form
   words/<key>.json    {lemma: {"reihe": [index gap, count, ...], "formen": {form: count, ...}, "erste": {...}}}
                       reihe: the lemma's count per protocol it occurs in, formen: the word forms it brings together,
-                      erste: who said it first ({"name", "fraktion" or "rolle"}, null if unknown); only for lemmas
-                      first said from the 19th electoral term on, see pipeline/speakers.py
+                      erste: who said it first ({"name", "fraktion" or "rolle", "zwischenruf"}, null if unknown),
+                      beleg: the sentence of the first occurrence (pipeline/first_occurrence.py),
+                      fraktionen: {electoral term: {parliamentary group: count}} in speeches from the 19th term on
+  fraktionen.json     {electoral term: {parliamentary group: words in its speeches}}, the base for shares
   search/<prefix>.json  [[lemma, total count], [form, total count of its lemma, lemma], ...] by descending count,
                         for lemmas and forms whose folded spelling starts with the prefix (its first
                         SEARCH_PREFIX_LENGTH characters, or the whole word if shorter)
@@ -16,8 +18,9 @@ Output layout (below --output):
 
 A series stores one entry per protocol in which the lemma occurs. The first entry is the absolute
 protocol index, every further entry the gap to the previous one, which keeps the numbers small.
-Protocol texts are split into word forms by pipeline/protocol_text.py, fragments of words divided by line breaks
-are left out (pipeline/fragments.py), and word forms are lemmatised by pipeline/lemmatizer.py.
+Protocol texts are split into word forms by pipeline/protocol_text.py, words glued together by text recognition
+are split (pipeline/ocr_repair.py), fragments of words divided by line breaks are left out (pipeline/fragments.py),
+and word forms are lemmatised by pipeline/lemmatizer.py.
 
 Runs are incremental: --previous reads an earlier output, so only protocols it does not contain yet
 are counted, and only forms it does not contain yet are lemmatised; a form keeps its lemma once assigned.
@@ -33,16 +36,19 @@ import sys
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ElementTree
+import zlib
 from array import array
 from collections import Counter
 from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
 
+from first_occurrence import first_occurrences, is_before_structured_protocols, needs_details
 from fragments import FragmentDetector
 from lemmatizer import Lemmatizer
+from ocr_repair import split_glued_forms
 from protocol_text import extract_words
-from speakers import attach_first_speakers
+from speakers import read_structured_protocols
 
 TARGET_SHARD_BYTES = 1_000_000
 INITIAL_SHARD_KEY_LENGTH = 2
@@ -63,6 +69,7 @@ MINIMUM_CHARACTERS_FOR_PLAUSIBILITY_CHECK = 50000
 class NewProtocol:
     entry: dict
     text: str
+    compressed_text: bytes = b''
 
 
 @dataclass
@@ -72,6 +79,9 @@ class Corpus:
     form_counts: Counter = field(default_factory=Counter)
     lemma_of_form: dict[str, str] = field(default_factory=dict)
     first_speaker_of_lemma: dict[str, dict | None] = field(default_factory=dict)
+    evidence_of_lemma: dict[str, str] = field(default_factory=dict)
+    group_counts: dict[str, dict[str, Counter]] = field(default_factory=dict)
+    group_totals: dict[str, Counter] = field(default_factory=dict)
 
 
 def protocol_entry(document_id, wahlperiode, document_number, session_date, pdf_url) -> dict:
@@ -150,6 +160,13 @@ def load_previous(directory: Path) -> Corpus:
                 corpus.lemma_of_form[form] = lemma
             if 'erste' in content:
                 corpus.first_speaker_of_lemma[lemma] = content['erste']
+            if 'beleg' in content:
+                corpus.evidence_of_lemma[lemma] = content['beleg']
+            if 'fraktionen' in content:
+                corpus.group_counts[lemma] = {term: Counter(groups) for term, groups in content['fraktionen'].items()}
+    group_totals_file = directory / 'fraktionen.json'
+    if group_totals_file.exists():
+        corpus.group_totals = {term: Counter(groups) for term, groups in json.loads(group_totals_file.read_text()).items()}
     return corpus
 
 
@@ -190,6 +207,7 @@ def count_forms_per_protocol(protocols: list[NewProtocol], form_ids: dict[str, i
         if has_implausibly_few_words(protocol.text, len(forms)):
             implausible.append(f"{protocol.entry['nummer']} ({len(forms)} Wörter aus {len(protocol.text)} Zeichen)")
         protocol.entry['woerter'] = len(forms)
+        protocol.compressed_text = zlib.compress(protocol.text.encode())
         protocol.text = ''
         pairs = array('I')
         for form, count in Counter(forms).items():
@@ -205,6 +223,8 @@ def count_forms_per_protocol(protocols: list[NewProtocol], form_ids: dict[str, i
 def add_protocols(corpus: Corpus, protocols: list[NewProtocol]) -> None:
     form_ids: dict[str, int] = {}
     counts_per_protocol = count_forms_per_protocol(protocols, form_ids)
+    split_occurrences = split_glued_forms([protocol.entry for protocol in protocols], counts_per_protocol, form_ids)
+    print(f'{split_occurrences} verklebte Wörter in alten Protokollen getrennt', file=sys.stderr)
     forms = list(form_ids)
 
     reformed_spelling_counts = reformed_spelling_counts_of_lemmas(corpus)
@@ -215,7 +235,7 @@ def add_protocols(corpus: Corpus, protocols: list[NewProtocol]) -> None:
             if is_in_reformed_spelling(protocol.entry):
                 reformed_spelling_counts[form] += count
 
-    new_forms = [form for form in forms if form not in corpus.lemma_of_form]
+    new_forms = [form for form in forms if form not in corpus.lemma_of_form and corpus.form_counts[form] > 0]
     fragment_detector = FragmentDetector(corpus.form_counts)
     fragments = {form for form in new_forms if fragment_detector.is_fragment(form, corpus.form_counts[form])}
     for fragment in fragments:
@@ -294,6 +314,11 @@ def word_entry(corpus: Corpus, lemma: str, forms: dict[str, int]) -> dict:
     entry = {'reihe': encode_series(corpus.occurrences_by_lemma[lemma]), 'formen': forms}
     if lemma in corpus.first_speaker_of_lemma:
         entry['erste'] = corpus.first_speaker_of_lemma[lemma]
+    if lemma in corpus.evidence_of_lemma:
+        entry['beleg'] = corpus.evidence_of_lemma[lemma]
+    if lemma in corpus.group_counts:
+        entry['fraktionen'] = {term: dict(sorted(groups.items()))
+                               for term, groups in sorted(corpus.group_counts[lemma].items())}
     return entry
 
 
@@ -355,6 +380,28 @@ def build_search_index(corpus: Corpus) -> dict[str, list[list]]:
     return index
 
 
+def attach_first_occurrence_details(corpus: Corpus, new_protocols: list[NewProtocol]) -> None:
+    """Evidence for lemmas first said in the new protocols, and the speaker from the text before the 19th term."""
+    index_of_protocol = {entry['id']: index for index, entry in enumerate(corpus.entries)}
+    wanted_by_protocol: dict[int, set[str]] = {}
+    for lemma, occurrences in corpus.occurrences_by_lemma.items():
+        protocol_index = occurrences[0]
+        if lemma in corpus.evidence_of_lemma:
+            continue
+        if needs_details(lemma_total(corpus, lemma), corpus.entries[protocol_index]['wahlperiode']):
+            wanted_by_protocol.setdefault(protocol_index, set()).add(lemma)
+    for protocol in new_protocols:
+        protocol_index = index_of_protocol[protocol.entry['id']]
+        wanted = wanted_by_protocol.get(protocol_index)
+        if not wanted:
+            continue
+        text = zlib.decompress(protocol.compressed_text).decode()
+        for lemma, (speaker, evidence) in first_occurrences(text, wanted, corpus.lemma_of_form).items():
+            corpus.evidence_of_lemma[lemma] = evidence
+            if is_before_structured_protocols(protocol.entry['wahlperiode']):
+                corpus.first_speaker_of_lemma.setdefault(lemma, speaker)
+
+
 def recently_first_said(corpus: Corpus) -> list[dict]:
     latest = max(date.fromisoformat(entry['datum']) for entry in corpus.entries if entry['datum'])
     since = (latest - timedelta(days=NEW_WORDS_DAYS)).isoformat()
@@ -364,12 +411,13 @@ def recently_first_said(corpus: Corpus) -> list[dict]:
         protocol = corpus.entries[occurrences[0]]
         if protocol['datum'] >= since:
             new_words.append({'lemma': lemma, 'formen': list(forms[lemma]), 'protokoll': protocol,
-                              'anzahl': occurrences[1], 'erste': corpus.first_speaker_of_lemma.get(lemma)})
+                              'anzahl': occurrences[1], 'erste': corpus.first_speaker_of_lemma.get(lemma),
+                              'beleg': corpus.evidence_of_lemma.get(lemma)})
     return sorted(new_words, key=lambda word: (word['protokoll']['datum'], word['lemma']), reverse=True)
 
 
 def write_output(output_directory: Path, entries: list[dict], shards: dict[str, dict[str, dict]],
-                 search_index: dict[str, list[list]], new_words: list[dict]) -> None:
+                 search_index: dict[str, list[list]], new_words: list[dict], group_totals: dict[str, Counter]) -> None:
     words_directory = output_directory / 'words'
     search_directory = output_directory / 'search'
     for directory in (words_directory, search_directory):
@@ -379,6 +427,8 @@ def write_output(output_directory: Path, entries: list[dict], shards: dict[str, 
     (output_directory / 'protocols.json').write_bytes(serialize(entries))
     (output_directory / 'shards.json').write_bytes(serialize(sorted(shards)))
     (output_directory / 'neue-woerter.json').write_bytes(serialize(new_words))
+    (output_directory / 'fraktionen.json').write_bytes(serialize(
+        {term: dict(sorted(groups.items())) for term, groups in sorted(group_totals.items())}))
     for key, shard in shards.items():
         (words_directory / f'{key}.json').write_bytes(serialize(dict(sorted(shard.items()))))
     for prefix, search_entries in search_index.items():
@@ -415,6 +465,7 @@ def report_sizes(output_directory: Path, corpus: Corpus) -> None:
     print(f'protocols.json: {raw_sizes[output_directory / "protocols.json"] / 1e3:.0f} KB roh')
     known_speakers = sum(1 for speaker in corpus.first_speaker_of_lemma.values() if speaker)
     print(f'Erste Redner: {known_speakers} bekannt, {len(corpus.first_speaker_of_lemma) - known_speakers} unbekannt')
+    print(f'Belege: {len(corpus.evidence_of_lemma)}, Lemmata mit Fraktionszählung: {len(corpus.group_counts)}')
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -451,11 +502,16 @@ def main() -> None:
 
     add_protocols(corpus, new_protocols)
     sort_chronologically(corpus)
+    new_ids = {protocol.entry['id'] for protocol in new_protocols}
+    new_indices = {index for index, entry in enumerate(corpus.entries) if entry['id'] in new_ids}
     if not arguments.skip_speakers:
-        attach_first_speakers(corpus.entries, first_protocol_of_lemma(corpus), corpus.first_speaker_of_lemma,
-                              corpus.lemma_of_form, arguments.speaker_cache)
+        read_structured_protocols(corpus.entries, first_protocol_of_lemma(corpus), new_indices, corpus.lemma_of_form,
+                                  corpus.first_speaker_of_lemma, corpus.group_counts, corpus.group_totals,
+                                  arguments.speaker_cache)
+    attach_first_occurrence_details(corpus, new_protocols)
     shards = split_into_shards(word_entries(corpus), INITIAL_SHARD_KEY_LENGTH)
-    write_output(arguments.output, corpus.entries, shards, build_search_index(corpus), recently_first_said(corpus))
+    write_output(arguments.output, corpus.entries, shards, build_search_index(corpus), recently_first_said(corpus),
+                 corpus.group_totals)
     verify_round_trip(arguments.output, corpus)
     report_sizes(arguments.output, corpus)
 

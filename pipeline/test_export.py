@@ -9,13 +9,15 @@ from export_static_data import decode_series, encode_series, fold_for_shard_key
 
 EXPORT_SCRIPT = Path(__file__).with_name('export_static_data.py')
 TABLE_OF_CONTENTS = 'Inhalt ' * 120
+# Single letters are not counted; they make the text after the session start long enough to be cut there.
+UNCOUNTED_FILLER = ' x' * 300
 
 
 def protocol_xml(document_id: int, number: str, session_date: str, body: str) -> str:
     return f'''<document><id>{document_id}</id><wahlperiode>{number.split('/')[0]}</wahlperiode>
 <dokumentnummer>{number}</dokumentnummer><datum>{session_date}</datum>
 <fundstelle><pdf_url>https://example.org/{document_id}.pdf</pdf_url></fundstelle>
-<text>{TABLE_OF_CONTENTS}\nBeginn: 9.00 Uhr\n{body}</text></document>'''
+<text>{TABLE_OF_CONTENTS}\nBeginn: 9.00 Uhr\nPräsident Dr. Muster:\n{body}\n{UNCOUNTED_FILLER}</text></document>'''
 
 
 def run_export(*arguments: str) -> None:
@@ -72,6 +74,7 @@ class ExportTest(unittest.TestCase):
         self.assertIn('Deutschlandticket', lemmas)
         self.assertNotIn('Gesetzentwurf', lemmas)
         self.assertEqual(new_words[0]['protokoll']['nummer'], '20/50')
+        self.assertEqual(new_words[0]['beleg'], 'Das Deutschlandticket und der Gesetzentwurf.')
 
     def test_export_stops_when_a_protocol_yields_implausibly_few_words(self):
         self.write_protocol(1, '01/1', '1949-09-07', '1234 5678 ' * 10000)

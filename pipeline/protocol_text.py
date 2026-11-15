@@ -10,6 +10,7 @@ enumerations ("Bundes- und Landesrecht") are not counted; abbreviations such as 
 """
 
 import re
+from collections.abc import Iterator
 
 # A session start marker found later than this share of the text is the old format's closing note, not the start.
 MINIMUM_TEXT_AFTER_SESSION_START = 500
@@ -41,7 +42,9 @@ URL = re.compile(r'(?:https?|ftp)://\S+|www\.\S+')
 HYPHEN_AT_LINE_END = re.compile(r'(\w+)(?:[ \t]*\n)?[ \t]*-[ \t]*\n\s*(\w+)')
 # "Außen-" before "und Innenpolitik" at a line break is an enumeration, not a split word.
 ENUMERATION_CONJUNCTIONS = {'und', 'oder', 'bzw', 'sowie', 'bis', 'wie'}
-SEPARATORS = re.compile('[#"!$%&\'()*+,‚.:;<=>?@\\[\\]^_`{|}~„“”‘’«»‹›–—…/ʼ\xa0\\s]+')
+SEPARATOR_CHARACTERS = '#"!$%&\'()*+,‚.:;<=>?@\\[\\]^_`{|}~„“”‘’«»‹›–—…/ʼ\xa0\\s'
+SEPARATORS = re.compile(f'[{SEPARATOR_CHARACTERS}]+')
+TOKEN = re.compile(f'[^{SEPARATOR_CHARACTERS}]+')
 REPEATED_LETTER = re.compile(r'([A-Za-z])\1{4,}')
 HAS_LETTER = re.compile(r'[A-Za-zÄÖÜäöüß]')
 
@@ -110,7 +113,20 @@ def is_countable(word: str) -> bool:
     return not (REPEATED_LETTER.search(word) or has_capital_inside_word(word))
 
 
+def clean_text(text: str) -> str:
+    """The spoken part of a protocol, without print layout and with words joined across line breaks."""
+    return join_line_end_hyphenation(URL.sub(' ', without_print_layout(from_session_start(text))))
+
+
+def words_of(passage: str) -> list[str]:
+    return [word for word in SEPARATORS.split(passage) if is_countable(word)]
+
+
+def words_with_positions(passage: str) -> Iterator[tuple[str, int, int]]:
+    for match in TOKEN.finditer(passage):
+        if is_countable(match.group(0)):
+            yield match.group(0), match.start(), match.end()
+
+
 def extract_words(text: str) -> list[str]:
-    text = without_print_layout(from_session_start(text))
-    text = join_line_end_hyphenation(URL.sub(' ', text))
-    return [word for word in SEPARATORS.split(text) if is_countable(word)]
+    return words_of(clean_text(text))
