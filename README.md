@@ -29,6 +29,26 @@ Rechtschreibung werden zusammengefasst (Ausschuß, Ausschuss). Bedeutungsuntersc
 mindestens 97 Prozent. Eine Wortform behält ihr Lemma in späteren Läufen; eine geänderte Regel wirkt erst nach
 einem Neuaufbau.
 
+## Daten nachnutzen
+
+Der vollständige Datenstand liegt als `static-data.tar.gz` im Release
+[daten](https://github.com/ungeschneuer/plenum_first_said_website/releases/tag/daten) und wird bei jedem Lauf mit
+neuen Protokollen ersetzt; einzelne Dateien liegen auch unter `https://ungeschneuer.github.io/plenum_first_said_website/data/`.
+Alle Dateien sind JSON in UTF-8.
+
+| Datei | Inhalt |
+|---|---|
+| `protocols.json` | alle Protokolle nach Datum: `id` (DIP), `wahlperiode`, `nummer` (z. B. `21/108`), `datum`, `pdf`, `woerter` (gezählte Wörter); die Position in der Liste ist der Protokollindex |
+| `shards.json` | Schlüssel der Teildateien; ein Lemma steht in der Teildatei mit dem längsten Schlüssel, der seine gefaltete Schreibung beginnt (klein, ä zu ae, ß zu ss, alles außer a bis z zu `_`) |
+| `words/<Schlüssel>.json` | je Lemma: `reihe` (Paare aus Abstand zum vorigen Protokollindex und Anzahl, das erste Paar mit dem absoluten Index), `formen` (Wortform: Anzahl), `erste` (Name und Fraktion oder Rolle der ersten Person, `zwischenruf` bei Zwischenrufen, `null` wenn unbekannt), `beleg` (Satz des ersten Vorkommens), `fraktionen` (je Wahlperiode ab der 19. die Anzahl je Fraktion in Reden) |
+| `search/<Präfix>.json` | Suchindex: `[Lemma, Anzahl]` und `[Wortform, Anzahl des Lemmas, Lemma]`, nach Anzahl sortiert |
+| `fraktionen.json` | je Wahlperiode die gezählten Wörter jeder Fraktion in Reden, die Bezugsgröße für Anteile |
+| `neue-woerter.json` | Lemmata, die in den Protokollen der letzten 90 Tage zum ersten Mal vorkommen, mit Protokoll, Formen, erster Person und Beleg |
+
+Beispiel: `"reihe": [3, 1, 4, 2]` heißt einmal in Protokoll 3 und zweimal in Protokoll 7. Die Texte stammen vom
+Deutschen Bundestag (Datenlizenz Deutschland – Namensnennung – Version 2.0); bitte nennen Sie bei einer Nachnutzung
+den Deutschen Bundestag als Quelle.
+
 ## Lokal arbeiten
 
 ```bash
