@@ -1,149 +1,70 @@
-import { Shield } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Separator } from '../ui/separator';
+import { TextPage, ExternalLink } from '../layout/TextPage';
+import { OPERATOR } from '../../siteConfig';
 
 export default function Datenschutz() {
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-accent rounded-lg">
-            <Shield className="h-6 w-6" />
-          </div>
-          <h1 className="text-4xl font-bold">Datenschutzerklärung</h1>
-        </div>
-      </div>
+    <TextPage title="Datenschutzerklärung">
+      <h2>Verantwortlicher</h2>
+      <p>Verantwortlich im Sinne der Datenschutz-Grundverordnung (DSGVO) ist:</p>
+      <p>
+        {OPERATOR.name}
+        {OPERATOR.addressLines.map((line) => (
+          <span key={line}>
+            <br />
+            {line}
+          </span>
+        ))}
+        <br />
+        E-Mail: <a href={`mailto:${OPERATOR.email}`}>{OPERATOR.email}</a>
+      </p>
 
-      {/* Content */}
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Datenschutz auf einen Blick</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-muted-foreground">
-            <div>
-              <h3 className="font-semibold text-foreground mb-2">Allgemeine Hinweise</h3>
-              <p>
-                Die folgenden Hinweise geben einen einfachen Überblick darüber, was mit Ihren
-                personenbezogenen Daten passiert, wenn Sie diese Website besuchen. Personenbezogene
-                Daten sind alle Daten, mit denen Sie persönlich identifiziert werden können.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+      <h2>Hosting über GitHub Pages</h2>
+      <p>
+        Diese Website ist eine statische Seite und wird über GitHub Pages ausgeliefert, einen Dienst der GitHub, Inc.,
+        88 Colin P. Kelly Jr. Street, San Francisco, CA 94107, USA. Beim Aufruf verarbeitet GitHub technisch notwendige
+        Verbindungsdaten, insbesondere Ihre IP-Adresse, um die Seite auszuliefern und vor Missbrauch zu schützen.
+        Rechtsgrundlage ist unser berechtigtes Interesse an einer sicheren und verlässlichen Bereitstellung (Art. 6
+        Abs. 1 lit. f DSGVO). Dabei können Daten in die USA übermittelt werden; GitHub ist nach dem EU-US Data Privacy
+        Framework zertifiziert. Einzelheiten stehen in der{' '}
+        <ExternalLink href="https://docs.github.com/de/site-policy/privacy-policies/github-general-privacy-statement">
+          Datenschutzerklärung von GitHub
+        </ExternalLink>
+        .
+      </p>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Datenerfassung auf dieser Website</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-muted-foreground">
-            <div>
-              <h3 className="font-semibold text-foreground mb-2">
-                Wer ist verantwortlich für die Datenerfassung?
-              </h3>
-              <p>
-                Die Datenverarbeitung auf dieser Website erfolgt durch den Websitebetreiber. Dessen
-                Kontaktdaten können Sie dem Impressum dieser Website entnehmen.
-              </p>
-            </div>
+      <h2>Keine Cookies, kein Tracking</h2>
+      <p>
+        Wir setzen keine Cookies, keine Analyse- oder Tracking-Dienste und keine Inhalte von Drittanbietern ein.
+        Schriften, Daten und Skripte werden mit der Seite ausgeliefert. Das gewählte Farbschema speichert Ihr Browser
+        lokal; es wird nicht an uns übertragen.
+      </p>
 
-            <Separator />
+      <h2>Links zu Protokollen</h2>
+      <p>
+        Links zu den PDF-Protokollen führen zum Angebot des Deutschen Bundestages. Erst wenn Sie einen solchen Link
+        öffnen, werden Daten an dessen Betreiber übertragen; es gelten dessen Datenschutzhinweise.
+      </p>
 
-            <div>
-              <h3 className="font-semibold text-foreground mb-2">Wie erfassen wir Ihre Daten?</h3>
-              <p>
-                Ihre Daten werden zum einen dadurch erhoben, dass Sie uns diese mitteilen. Andere Daten
-                werden automatisch beim Besuch der Website durch unsere IT-Systeme erfasst. Das sind vor
-                allem technische Daten (z.B. Internetbrowser, Betriebssystem oder Uhrzeit des
-                Seitenaufrufs).
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+      <h2>Kontakt per E-Mail</h2>
+      <p>
+        Wenn Sie uns schreiben, verarbeiten wir Ihre Angaben nur, um Ihre Anfrage zu beantworten (Art. 6 Abs. 1 lit. f
+        DSGVO), und löschen sie, wenn sie dafür nicht mehr gebraucht werden.
+      </p>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Hosting</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground">
-            <p>
-              Diese Website wird lokal gehostet. Die Server befinden sich in [Ort/Land].
-              Es werden keine externen Hosting-Dienste verwendet.
-            </p>
-          </CardContent>
-        </Card>
+      <h2>Personen in den Daten</h2>
+      <p>
+        Die Seite zählt Wörter aus öffentlichen Plenarsitzungen des Deutschen Bundestages. Ab der 19. Wahlperiode zeigt
+        sie, welche Rednerin oder welcher Redner ein Wort zuerst gesagt hat. Grundlage ist das öffentliche Interesse an
+        der Arbeit gewählter Abgeordneter und der Bundesregierung (Art. 6 Abs. 1 lit. f DSGVO).
+      </p>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Server-Log-Dateien</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground">
-            <p>
-              Der Provider der Seiten erhebt und speichert automatisch Informationen in sogenannten
-              Server-Log-Dateien, die Ihr Browser automatisch an uns übermittelt. Dies sind:
-            </p>
-            <ul className="list-disc list-inside mt-3 space-y-1">
-              <li>Browsertyp und Browserversion</li>
-              <li>Verwendetes Betriebssystem</li>
-              <li>Referrer URL</li>
-              <li>Hostname des zugreifenden Rechners</li>
-              <li>Uhrzeit der Serveranfrage</li>
-              <li>IP-Adresse</li>
-            </ul>
-            <p className="mt-3">
-              Eine Zusammenführung dieser Daten mit anderen Datenquellen wird nicht vorgenommen. Die
-              Erfassung dieser Daten erfolgt auf Grundlage von Art. 6 Abs. 1 lit. f DSGVO.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Analyse-Tools und Werbung</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground">
-            <p>
-              Diese Website verwendet keine Tracking- oder Analyse-Tools von Drittanbietern.
-              Es werden keine Cookies für Werbezwecke gesetzt.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Verwendete Datenquellen</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground">
-            <p>
-              Diese Anwendung verarbeitet öffentlich zugängliche Daten aus den Plenarprotokollen
-              des Deutschen Bundestages. Diese Daten unterliegen der Datenlizenz Deutschland –
-              Namensnennung – Version 2.0.
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Ihre Rechte</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground">
-            <p>
-              Sie haben jederzeit das Recht auf unentgeltliche Auskunft über Ihre gespeicherten
-              personenbezogenen Daten, deren Herkunft und Empfänger und den Zweck der Datenverarbeitung
-              sowie ein Recht auf Berichtigung oder Löschung dieser Daten.
-            </p>
-          </CardContent>
-        </Card>
-
-        <p className="text-sm text-muted-foreground text-center mt-8">
-          Stand: {new Date().toLocaleDateString('de-DE', {
-            year: 'numeric',
-            month: 'long',
-            day: 'numeric'
-          })}
-        </p>
-      </div>
-    </div>
+      <h2>Ihre Rechte</h2>
+      <p>
+        Sie haben das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit
+        und Widerspruch (Art. 15 bis 21 DSGVO). Wenden Sie sich dafür an die oben genannte Adresse. Außerdem können Sie
+        sich bei einer Datenschutz-Aufsichtsbehörde beschweren, zum Beispiel bei der für Ihren Wohnort zuständigen
+        Behörde.
+      </p>
+    </TextPage>
   );
 }

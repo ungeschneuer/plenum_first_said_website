@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Search, TrendingUp, AlertCircle, Loader2 } from 'lucide-react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Search, AlertCircle, Loader2 } from 'lucide-react';
 import { searchWords, getStatus, MINIMUM_QUERY_LENGTH } from '../utils/staticData';
 import { formatGermanDate, germanPlurals } from '../utils/german';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
@@ -71,20 +71,15 @@ export default function SearchPage() {
   return (
     <div className="min-h-[calc(100vh-4rem)]">
       {/* Hero Section */}
-      <div className="bg-gradient-to-b from-accent/20 to-background border-b border-border">
+      <div className="border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
           <div className="text-center space-y-6">
-            <div className="inline-flex items-center gap-2 px-4 py-2 bg-background border border-border rounded-full">
-              <TrendingUp className="h-4 w-4" aria-hidden="true" />
-              <span className="text-sm font-medium">Bundestag Wortschatz</span>
-            </div>
-
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight">
-              Wort-Häufigkeits-Tracker
+              Wie oft sagt der Bundestag …?
             </h1>
 
             <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto">
-              Verfolgen Sie Worthäufigkeiten in Bundestagsdebatten im Zeitverlauf
+              Jedes Wort aus den Plenarsitzungen seit 1949, Sitzung für Sitzung gezählt, mit seinem ersten Vorkommen.
             </p>
 
             {status && (
@@ -106,7 +101,7 @@ export default function SearchPage() {
                 <Search className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" aria-hidden="true" />
                 <Input
                   type="text"
-                  placeholder="Suchen Sie nach einem Wort (z.B. klimawandel, digitalisierung)..."
+                  placeholder="Wort eingeben, zum Beispiel Klimawandel"
                   className="pl-12 pr-12 h-12 text-lg"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
@@ -211,19 +206,12 @@ export default function SearchPage() {
         {/* Help Text / Quick Links */}
         {query.length === 0 && !loading && (
           <div className="space-y-12">
-            {/* How to Use */}
-            <Card>
-              <CardHeader>
-                <CardTitle>So verwenden Sie den Tracker</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <ol className="list-decimal list-inside space-y-2 text-muted-foreground">
-                  <li>Geben Sie ein Wort oder einen Wortteil in das Suchfeld ein</li>
-                  <li>Wählen Sie ein Wort aus den Ergebnissen aus</li>
-                  <li>Sehen Sie sich die Häufigkeitszeitachse und Details des Wortes an</li>
-                </ol>
-              </CardContent>
-            </Card>
+            <p className="text-muted-foreground">
+              Geben Sie ein Wort ein, zum Beispiel <Link to="/wort/Klimawandel" className="underline underline-offset-2">Klimawandel</Link>,{' '}
+              <Link to="/wort/Zeitenwende" className="underline underline-offset-2">Zeitenwende</Link> oder{' '}
+              <Link to="/wort/Wiedervereinigung" className="underline underline-offset-2">Wiedervereinigung</Link>. Gebeugte
+              Formen führen zur Grundform. Wie gezählt wird, steht unter <Link to="/about" className="underline underline-offset-2">Über das Projekt</Link>.
+            </p>
           </div>
         )}
       </div>

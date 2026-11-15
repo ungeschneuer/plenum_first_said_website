@@ -1,127 +1,58 @@
-import { Link } from 'react-router-dom';
-import { FileText, ExternalLink } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '../ui/card';
-import { Separator } from '../ui/separator';
+import { TextPage, ExternalLink } from '../layout/TextPage';
+import { OPERATOR, SOURCE_REPOSITORY, DATA_SOURCE } from '../../siteConfig';
 
 export default function Impressum() {
   return (
-    <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3 mb-4">
-          <div className="p-2 bg-accent rounded-lg">
-            <FileText className="h-6 w-6" />
-          </div>
-          <h1 className="text-4xl font-bold">Impressum</h1>
-        </div>
-      </div>
+    <TextPage title="Impressum">
+      <h2>Kontaktadresse</h2>
+      <p>
+        {OPERATOR.name}
+        {OPERATOR.addressLines.map((line) => (
+          <span key={line}>
+            <br />
+            {line}
+          </span>
+        ))}
+        <br />
+        E-Mail: <a href={`mailto:${OPERATOR.email}`}>{OPERATOR.email}</a>
+      </p>
 
-      {/* Content */}
-      <div className="space-y-6">
-        <Card>
-          <CardHeader>
-            <CardTitle>Angaben gemäß § 5 TMG</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground">
-            <p>
-              [Ihr Name oder Organisation]<br />
-              [Straße und Hausnummer]<br />
-              [PLZ und Ort]
-            </p>
-          </CardContent>
-        </Card>
+      <h2>Haftungsausschluss</h2>
+      <p>
+        Der Autor übernimmt keinerlei Gewähr hinsichtlich der inhaltlichen Richtigkeit, Genauigkeit, Aktualität,
+        Zuverlässigkeit und Vollständigkeit der Informationen. Die Zahlen werden automatisch aus den Texten der
+        Plenarprotokolle ermittelt; ältere Protokolle beruhen auf Texterkennung und enthalten Lesefehler. Verbindlich
+        sind allein die Plenarprotokolle des Deutschen Bundestages.
+      </p>
+      <p>
+        Haftungsansprüche gegen den Autor wegen Schäden materieller oder immaterieller Art, welche aus dem Zugriff oder
+        der Nutzung bzw. Nichtnutzung der veröffentlichten Informationen, durch Missbrauch der Verbindung oder durch
+        technische Störungen entstanden sind, werden ausgeschlossen.
+      </p>
+      <p>
+        Alle Angebote sind unverbindlich. Der Autor behält es sich ausdrücklich vor, Teile der Seiten oder das gesamte
+        Angebot ohne gesonderte Ankündigung zu verändern, zu ergänzen, zu löschen oder die Veröffentlichung zeitweise
+        oder endgültig einzustellen.
+      </p>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Kontakt</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground">
-            <p>
-              E-Mail: [ihre-email@example.com]<br />
-              Telefon: [Ihre Telefonnummer]
-            </p>
-          </CardContent>
-        </Card>
+      <h2>Haftung für Links</h2>
+      <p>
+        Verweise und Links auf Webseiten Dritter liegen außerhalb unseres Verantwortungsbereichs. Es wird jegliche
+        Verantwortung für solche Webseiten abgelehnt. Der Zugriff und die Nutzung solcher Webseiten erfolgen auf eigene
+        Gefahr des Nutzers oder der Nutzerin.
+      </p>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Verantwortlich für den Inhalt</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground">
-            <p>
-              Verantwortlich für den Inhalt nach § 55 Abs. 2 RStV:<br />
-              [Ihr Name]<br />
-              [Ihre Adresse]
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Haftungsausschluss</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4 text-muted-foreground">
-            <div>
-              <h3 className="font-semibold text-foreground mb-2">Haftung für Inhalte</h3>
-              <p>
-                Die Inhalte unserer Seiten wurden mit größter Sorgfalt erstellt.
-                Für die Richtigkeit, Vollständigkeit und Aktualität der Inhalte
-                können wir jedoch keine Gewähr übernehmen. Als Diensteanbieter sind
-                wir gemäß § 7 Abs.1 TMG für eigene Inhalte auf diesen Seiten nach
-                den allgemeinen Gesetzen verantwortlich.
-              </p>
-            </div>
-
-            <Separator />
-
-            <div>
-              <h3 className="font-semibold text-foreground mb-2">Haftung für Links</h3>
-              <p>
-                Unser Angebot enthält Links zu externen Webseiten Dritter, auf deren
-                Inhalte wir keinen Einfluss haben. Deshalb können wir für diese
-                fremden Inhalte auch keine Gewähr übernehmen. Für die Inhalte der
-                verlinkten Seiten ist stets der jeweilige Anbieter oder Betreiber
-                der Seiten verantwortlich.
-              </p>
-            </div>
-
-            <Separator />
-
-            <div>
-              <h3 className="font-semibold text-foreground mb-2">Urheberrecht</h3>
-              <p>
-                Die durch die Seitenbetreiber erstellten Inhalte und Werke auf diesen
-                Seiten unterliegen dem deutschen Urheberrecht. Die Vervielfältigung,
-                Bearbeitung, Verbreitung und jede Art der Verwertung außerhalb der
-                Grenzen des Urheberrechtes bedürfen der schriftlichen Zustimmung des
-                jeweiligen Autors bzw. Erstellers.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Datenquelle</CardTitle>
-          </CardHeader>
-          <CardContent className="text-muted-foreground">
-            <p className="mb-3">
-              Die Daten für dieses Projekt stammen aus den öffentlich zugänglichen
-              Plenarprotokollen des Deutschen Bundestages, die unter einer offenen
-              Lizenz zur Verfügung gestellt werden.
-            </p>
-            <a
-              href="https://www.bundestag.de/services/opendata"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 text-primary hover:underline"
-            >
-              Bundestag Open Data
-              <ExternalLink className="h-4 w-4" />
-            </a>
-          </CardContent>
-        </Card>
-      </div>
-    </div>
+      <h2>Lizenzen und Quellen</h2>
+      <p>
+        Der <ExternalLink href={SOURCE_REPOSITORY}>Quellcode</ExternalLink> steht unter der GNU General Public License,
+        Version 3.
+      </p>
+      <p>
+        Die Plenarprotokolle stammen aus dem{' '}
+        <ExternalLink href={DATA_SOURCE.url}>{DATA_SOURCE.name}</ExternalLink> (© Deutscher Bundestag,{' '}
+        <ExternalLink href={DATA_SOURCE.licenseUrl}>{DATA_SOURCE.licenseName}</ExternalLink>). Die Wortzählungen sind
+        aus diesen Texten abgeleitet und stehen unter derselben Lizenz.
+      </p>
+    </TextPage>
   );
 }
