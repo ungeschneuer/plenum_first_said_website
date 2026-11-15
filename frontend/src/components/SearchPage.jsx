@@ -161,7 +161,7 @@ export default function SearchPage() {
               </Badge>
             </div>
 
-            <div className="grid gap-2">
+            <div className="grid grid-cols-1 gap-2">
               {results.map((result) => (
                 <Card
                   key={result.word_id}
@@ -177,9 +177,9 @@ export default function SearchPage() {
                   role="button"
                   aria-label={`${result.word} anzeigen, ${germanPlurals.vorkommen(result.occurrence_count)}`}
                 >
-                  <CardContent className="flex items-center justify-between p-4">
-                    <span className="font-semibold text-lg">{result.word}</span>
-                    <Badge>{germanPlurals.vorkommen(result.occurrence_count)}</Badge>
+                  <CardContent className="flex items-center justify-between gap-3 p-4">
+                    <span className="min-w-0 break-words font-semibold text-lg">{result.word}</span>
+                    <Badge className="shrink-0">{germanPlurals.vorkommen(result.occurrence_count)}</Badge>
                   </CardContent>
                 </Card>
               ))}

@@ -231,9 +231,9 @@ export default function WordTimeline() {
           <Card>
             <CardHeader>
               <div className="flex flex-col gap-4">
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-3">
                   <CardTitle>Häufigkeitsverlauf</CardTitle>
-                  <div className="flex items-center gap-4">
+                  <div className="flex flex-wrap items-center gap-4">
                     <Button
                       variant="outline"
                       size="sm"
@@ -261,7 +261,7 @@ export default function WordTimeline() {
                 </div>
 
                 {/* Chart Type Selector */}
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <span className="text-sm font-medium text-muted-foreground">Diagrammtyp:</span>
                   <ToggleGroup
                     type="single"
@@ -281,7 +281,7 @@ export default function WordTimeline() {
                 </div>
 
                 {/* Aggregation Selector */}
-                <div className="flex items-center gap-3">
+                <div className="flex flex-wrap items-center gap-3">
                   <span className="text-sm font-medium text-muted-foreground">Zeitraum:</span>
                   <ToggleGroup
                     type="single"
