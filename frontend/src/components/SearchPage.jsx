@@ -178,7 +178,12 @@ export default function SearchPage() {
                   aria-label={`${result.word} anzeigen, ${germanPlurals.vorkommen(result.occurrence_count)}`}
                 >
                   <CardContent className="flex items-center justify-between gap-3 p-4">
-                    <span className="min-w-0 break-words font-semibold text-lg">{result.word}</span>
+                    <span className="min-w-0 break-words">
+                      <span className="font-semibold text-lg">{result.word}</span>
+                      {result.matched_form && (
+                        <span className="block text-sm text-muted-foreground">gefunden über {result.matched_form}</span>
+                      )}
+                    </span>
                     <Badge className="shrink-0">{germanPlurals.vorkommen(result.occurrence_count)}</Badge>
                   </CardContent>
                 </Card>

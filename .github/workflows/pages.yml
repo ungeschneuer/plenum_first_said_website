@@ -35,6 +35,13 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+
+      - name: Lemmatisierung prüfen
+        run: |
+          pip install -r pipeline/requirements.txt
+          python -m unittest discover --start-directory pipeline --top-level-directory pipeline
 
       - name: Vorigen Datenstand laden
         env:

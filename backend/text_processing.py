@@ -53,6 +53,7 @@ def pre_split_clean(text: str) -> str:
 
     # Replace punctuation with spaces
     punctuation = r"""#"!$%&'()*+,‚.":;<=>?@[\]^_`{|}~""„'ʼ"""
+    punctuation += '“”‘’«»‹›–—…/'
     for character in punctuation:
         text = text.replace(character, ' ')
 
@@ -89,6 +90,20 @@ def de_enumeration(words: List[str]) -> List[str]:
     return clean_words
 
 
+MAXIMUM_ABBREVIATION_LENGTH = 6
+
+
+def looks_like_abbreviation(part: str) -> bool:
+    capitals = sum(character.isupper() for character in part)
+    return part[:1].isupper() and capitals >= 2 and len(part) <= MAXIMUM_ABBREVIATION_LENGTH
+
+
+def has_capital_inside_word(word: str) -> bool:
+    """Capitals inside a word mark glued words or OCR errors, except in abbreviations (AfD, CSU-Fraktion)."""
+    return any(any(character.isupper() for character in part[1:])
+               for part in word.split('-') if not looks_like_abbreviation(part))
+
+
 def ok_word(word: str) -> bool:
     """Check if a word is valid."""
     # Reject single characters (isolated letters are parsing artifacts)
@@ -100,10 +115,7 @@ def ok_word(word: str) -> bool:
 
     # Word has same character repeated too many times
     regmul = re.compile('([A-z])\\1{4,}')
-    # Word has uppercase letters in the middle
-    regsmall = re.compile('[A-z]{1}[a-z]*[A-Z]+[a-z]*')
-
-    if regmul.search(word) or regsmall.search(word):
+    if regmul.search(word) or has_capital_inside_word(word):
         return False
 
     return not any(i.isdigit() or i in '(.@/#_§ ' for i in word)

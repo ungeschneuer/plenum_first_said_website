@@ -1,17 +1,21 @@
-"""Write the word series of all plenary protocols as static JSON files.
+"""Write the lemma series of all plenary protocols as static JSON files.
 
 Output layout (below --output):
   protocols.json      ordered list of protocols; a protocol's position is its index in every series
-  shards.json         list of shard keys; a word lives in the longest key that prefixes its folded form
-  words/<key>.json    {word: [index gap, count, index gap, count, ...]} per protocol the word occurs in
-  search/<prefix>.json  [[word, total count], ...] by descending count, for words whose folded form starts with
-                        the prefix (its first SEARCH_PREFIX_LENGTH characters, or the whole word if shorter)
+  shards.json         list of shard keys; a lemma lives in the longest key that prefixes its folded form
+  words/<key>.json    {lemma: {"reihe": [index gap, count, ...], "formen": {form: count, ...}}}
+                      reihe: the lemma's count per protocol it occurs in, formen: the word forms it brings together
+  search/<prefix>.json  [[lemma, total count], [form, total count of its lemma, lemma], ...] by descending count,
+                        for lemmas and forms whose folded spelling starts with the prefix (its first
+                        SEARCH_PREFIX_LENGTH characters, or the whole word if shorter)
 
-A series stores one entry per protocol in which the word occurs. The first entry is the absolute
+A series stores one entry per protocol in which the lemma occurs. The first entry is the absolute
 protocol index, every further entry the gap to the previous one, which keeps the numbers small.
+Word forms are lemmatised by pipeline/lemmatizer.py; see there for the rules.
 
 Runs are incremental: --previous reads an earlier output, so only protocols it does not contain yet
-are counted. New protocols come from a folder of DIP XML files (--input) or from the DIP API (--fetch-dip,
+are counted, and only forms it does not contain yet are lemmatised; a form keeps its lemma once assigned.
+New protocols come from a folder of DIP XML files (--input) or from the DIP API (--fetch-dip,
 key in the environment variable DIP_API_KEY). The output always holds every protocol, sorted by date.
 """
 
@@ -24,12 +28,15 @@ import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ElementTree
 from array import array
-from dataclasses import dataclass
+from collections import Counter
+from dataclasses import dataclass, field
 from datetime import date, timedelta
 from pathlib import Path
 
+from lemmatizer import Lemmatizer
+
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'backend'))
-from text_processing import extract_words, normalize_word  # noqa: E402
+from text_processing import extract_words  # noqa: E402
 
 TARGET_SHARD_BYTES = 1_000_000
 INITIAL_SHARD_KEY_LENGTH = 2
@@ -38,12 +45,22 @@ LETTER_REPLACEMENTS = {'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss'}
 DIP_PROTOCOL_TEXT_URL = 'https://search.dip.bundestag.de/api/v1/plenarprotokoll-text'
 # DIP sometimes publishes the text of a session days after its date, so each fetch looks back this far.
 DIP_LOOKBACK_DAYS = 60
+# Protocols from this date on are written in reformed spelling; they decide between ß and ss in lemmas.
+REFORMED_SPELLING_SINCE = '2007-01-01'
 
 
 @dataclass
 class NewProtocol:
     entry: dict
     text: str
+
+
+@dataclass
+class Corpus:
+    entries: list[dict] = field(default_factory=list)
+    occurrences_by_lemma: dict[str, array] = field(default_factory=dict)
+    form_counts: Counter = field(default_factory=Counter)
+    lemma_of_form: dict[str, str] = field(default_factory=dict)
 
 
 def protocol_entry(document_id, wahlperiode, document_number, session_date, pdf_url) -> dict:
@@ -110,22 +127,17 @@ def dip_start_date(entries: list[dict]) -> str:
     return (latest - timedelta(days=DIP_LOOKBACK_DAYS)).isoformat()
 
 
-def load_previous(directory: Path) -> tuple[list[dict], dict[str, array]]:
-    entries = json.loads((directory / 'protocols.json').read_text())
-    occurrences_by_word: dict[str, array] = {}
+def load_previous(directory: Path) -> Corpus:
+    corpus = Corpus(entries=json.loads((directory / 'protocols.json').read_text()))
     for key in json.loads((directory / 'shards.json').read_text()):
         shard = json.loads((directory / 'words' / f'{key}.json').read_text())
-        for word, series in shard.items():
-            occurrences_by_word[word] = array('I', (number for pair in decode_series(series) for number in pair))
-    return entries, occurrences_by_word
-
-
-def count_words(text: str) -> tuple[dict[str, int], int]:
-    words = [normalize_word(word) for word in extract_words(text)]
-    counts: dict[str, int] = {}
-    for word in words:
-        counts[word] = counts.get(word, 0) + 1
-    return counts, len(words)
+        for lemma, content in shard.items():
+            corpus.occurrences_by_lemma[lemma] = array(
+                'I', (number for pair in decode_series(content['reihe']) for number in pair))
+            for form, count in content['formen'].items():
+                corpus.form_counts[form] += count
+                corpus.lemma_of_form[form] = lemma
+    return corpus
 
 
 def unknown_protocols(candidates: list[NewProtocol], entries: list[dict], wahlperioden: set[int]) -> list[NewProtocol]:
@@ -139,15 +151,61 @@ def unknown_protocols(candidates: list[NewProtocol], entries: list[dict], wahlpe
     return unknown
 
 
-def add_protocols(entries: list[dict], occurrences_by_word: dict[str, array], protocols: list[NewProtocol]) -> None:
-    for protocol in protocols:
-        protocol_index = len(entries)
-        counts, protocol.entry['woerter'] = count_words(protocol.text)
-        entries.append(protocol.entry)
-        for word, count in counts.items():
-            occurrences_by_word.setdefault(word, array('I')).extend((protocol_index, count))
-        if protocol_index % 250 == 0:
-            print(f'  {protocol_index} Protokolle gezählt', file=sys.stderr)
+def is_in_reformed_spelling(entry: dict) -> bool:
+    return entry['datum'] >= REFORMED_SPELLING_SINCE
+
+
+def reformed_spelling_counts_of_lemmas(corpus: Corpus) -> Counter:
+    reformed_indices = {index for index, entry in enumerate(corpus.entries) if is_in_reformed_spelling(entry)}
+    counts = Counter()
+    for lemma, occurrences in corpus.occurrences_by_lemma.items():
+        counts[lemma] = sum(occurrences[position + 1] for position in range(0, len(occurrences), 2)
+                            if occurrences[position] in reformed_indices)
+    return counts
+
+
+def count_forms_per_protocol(protocols: list[NewProtocol], form_ids: dict[str, int]) -> list[array]:
+    counts_per_protocol = []
+    for number, protocol in enumerate(protocols):
+        forms = extract_words(protocol.text)
+        protocol.entry['woerter'] = len(forms)
+        protocol.text = ''
+        pairs = array('I')
+        for form, count in Counter(forms).items():
+            pairs.extend((form_ids.setdefault(form, len(form_ids)), count))
+        counts_per_protocol.append(pairs)
+        if number % 250 == 0:
+            print(f'  {number}/{len(protocols)} Protokolle gezählt', file=sys.stderr)
+    return counts_per_protocol
+
+
+def add_protocols(corpus: Corpus, protocols: list[NewProtocol]) -> None:
+    form_ids: dict[str, int] = {}
+    counts_per_protocol = count_forms_per_protocol(protocols, form_ids)
+    forms = list(form_ids)
+
+    reformed_spelling_counts = reformed_spelling_counts_of_lemmas(corpus)
+    for protocol, pairs in zip(protocols, counts_per_protocol):
+        for position in range(0, len(pairs), 2):
+            form, count = forms[pairs[position]], pairs[position + 1]
+            corpus.form_counts[form] += count
+            if is_in_reformed_spelling(protocol.entry):
+                reformed_spelling_counts[form] += count
+
+    lemmatizer = Lemmatizer(corpus.form_counts, reformed_spelling_counts)
+    new_forms = [form for form in forms if form not in corpus.lemma_of_form]
+    for form in new_forms:
+        corpus.lemma_of_form[form] = lemmatizer.lemma(form)
+    print(f'{len(new_forms)} neue Wortformen lemmatisiert', file=sys.stderr)
+
+    for protocol, pairs in zip(protocols, counts_per_protocol):
+        protocol_index = len(corpus.entries)
+        corpus.entries.append(protocol.entry)
+        counts_per_lemma = Counter()
+        for position in range(0, len(pairs), 2):
+            counts_per_lemma[corpus.lemma_of_form[forms[pairs[position]]]] += pairs[position + 1]
+        for lemma, count in counts_per_lemma.items():
+            corpus.occurrences_by_lemma.setdefault(lemma, array('I')).extend((protocol_index, count))
 
 
 def session_number(entry: dict) -> int:
@@ -161,18 +219,18 @@ def chronological_order(entries: list[dict]) -> list[int]:
                                      session_number(entries[index]), entries[index]['id']))
 
 
-def sort_chronologically(entries: list[dict], occurrences_by_word: dict[str, array]) -> list[dict]:
-    order = chronological_order(entries)
-    if order == list(range(len(entries))):
-        return entries
-    new_index_of = array('I', [0]) * len(entries)
+def sort_chronologically(corpus: Corpus) -> None:
+    order = chronological_order(corpus.entries)
+    if order == list(range(len(corpus.entries))):
+        return
+    new_index_of = array('I', [0]) * len(corpus.entries)
     for new_index, old_index in enumerate(order):
         new_index_of[old_index] = new_index
-    for word, occurrences in occurrences_by_word.items():
+    for lemma, occurrences in corpus.occurrences_by_lemma.items():
         pairs = sorted((new_index_of[occurrences[position]], occurrences[position + 1])
                        for position in range(0, len(occurrences), 2))
-        occurrences_by_word[word] = array('I', (number for pair in pairs for number in pair))
-    return [entries[old_index] for old_index in order]
+        corpus.occurrences_by_lemma[lemma] = array('I', (number for pair in pairs for number in pair))
+    corpus.entries = [corpus.entries[old_index] for old_index in order]
 
 
 def encode_series(occurrences: array) -> list[int]:
@@ -192,6 +250,20 @@ def decode_series(series: list[int]) -> list[tuple[int, int]]:
     return occurrences
 
 
+def forms_by_lemma(corpus: Corpus) -> dict[str, dict[str, int]]:
+    forms: dict[str, dict[str, int]] = {}
+    for form, lemma in corpus.lemma_of_form.items():
+        forms.setdefault(lemma, {})[form] = corpus.form_counts[form]
+    return {lemma: dict(sorted(counts.items(), key=lambda item: (-item[1], item[0])))
+            for lemma, counts in forms.items()}
+
+
+def word_entries(corpus: Corpus) -> dict[str, dict]:
+    forms = forms_by_lemma(corpus)
+    return {lemma: {'reihe': encode_series(occurrences), 'formen': forms[lemma]}
+            for lemma, occurrences in corpus.occurrences_by_lemma.items()}
+
+
 def fold_for_shard_key(word: str) -> str:
     folded = ''.join(LETTER_REPLACEMENTS.get(character, character) for character in word.lower())
     return ''.join(character if 'a' <= character <= 'z' else '_' for character in folded)
@@ -201,14 +273,14 @@ def serialize(content) -> bytes:
     return json.dumps(content, ensure_ascii=False, separators=(',', ':')).encode()
 
 
-def split_into_shards(series_by_word: dict[str, list[int]], key_length: int) -> dict[str, dict[str, list[int]]]:
-    groups: dict[str, dict[str, list[int]]] = {}
-    for word, series in series_by_word.items():
-        groups.setdefault(fold_for_shard_key(word)[:key_length], {})[word] = series
+def split_into_shards(entries_by_lemma: dict[str, dict], key_length: int) -> dict[str, dict[str, dict]]:
+    groups: dict[str, dict[str, dict]] = {}
+    for lemma, content in entries_by_lemma.items():
+        groups.setdefault(fold_for_shard_key(lemma)[:key_length], {})[lemma] = content
 
     shards = {}
     for key, group in groups.items():
-        cannot_split_further = all(len(fold_for_shard_key(word)) <= key_length for word in group)
+        cannot_split_further = all(len(fold_for_shard_key(lemma)) <= key_length for lemma in group)
         if len(serialize(group)) <= TARGET_SHARD_BYTES or cannot_split_further:
             shards[key] = group
         else:
@@ -224,17 +296,24 @@ def shard_key_for(word: str, shard_keys: set[str]) -> str | None:
     return None
 
 
-def build_search_index(occurrences_by_word: dict[str, array]) -> dict[str, list[list]]:
+def lemma_total(corpus: Corpus, lemma: str) -> int:
+    return sum(corpus.occurrences_by_lemma[lemma][1::2])
+
+
+def build_search_index(corpus: Corpus) -> dict[str, list[list]]:
+    totals = {lemma: lemma_total(corpus, lemma) for lemma in corpus.occurrences_by_lemma}
+    entries = [[lemma, total] for lemma, total in totals.items()]
+    entries += [[form, totals[lemma], lemma] for form, lemma in corpus.lemma_of_form.items()
+                if form.lower() != lemma.lower()]
     index: dict[str, list[list]] = {}
-    for word, occurrences in occurrences_by_word.items():
-        total = sum(occurrences[1::2])
-        index.setdefault(fold_for_shard_key(word)[:SEARCH_PREFIX_LENGTH], []).append([word, total])
-    for entries in index.values():
-        entries.sort(key=lambda entry: (-entry[1], entry[0]))
+    for entry in entries:
+        index.setdefault(fold_for_shard_key(entry[0])[:SEARCH_PREFIX_LENGTH], []).append(entry)
+    for prefix_entries in index.values():
+        prefix_entries.sort(key=lambda entry: (-entry[1], len(entry), entry[0]))
     return index
 
 
-def write_output(output_directory: Path, entries: list[dict], shards: dict[str, dict[str, list[int]]],
+def write_output(output_directory: Path, entries: list[dict], shards: dict[str, dict[str, dict]],
                  search_index: dict[str, list[list]]) -> None:
     words_directory = output_directory / 'words'
     search_directory = output_directory / 'search'
@@ -250,30 +329,29 @@ def write_output(output_directory: Path, entries: list[dict], shards: dict[str, 
         (search_directory / f'{prefix}.json').write_bytes(serialize(search_entries))
 
 
-def verify_round_trip(output_directory: Path, occurrences_by_word: dict[str, array]) -> None:
+def verify_round_trip(output_directory: Path, corpus: Corpus) -> None:
     shard_keys = set(json.loads((output_directory / 'shards.json').read_text()))
     loaded_shards: dict[str, dict] = {}
-    for word, occurrences in occurrences_by_word.items():
-        key = shard_key_for(word, shard_keys)
+    for lemma, occurrences in corpus.occurrences_by_lemma.items():
+        key = shard_key_for(lemma, shard_keys)
         if key not in loaded_shards:
             loaded_shards[key] = json.loads((output_directory / 'words' / f'{key}.json').read_text())
         expected = list(zip(occurrences[0::2], occurrences[1::2]))
-        if decode_series(loaded_shards[key][word]) != expected:
-            raise AssertionError(f'Reihe von „{word}“ stimmt nach dem Lesen nicht')
+        if decode_series(loaded_shards[key][lemma]['reihe']) != expected:
+            raise AssertionError(f'Reihe von „{lemma}“ stimmt nach dem Lesen nicht')
 
 
-def report_sizes(output_directory: Path, occurrences_by_word: dict[str, array], protocol_count: int) -> None:
+def report_sizes(output_directory: Path, corpus: Corpus) -> None:
     files = list(output_directory.rglob('*.json'))
     raw_sizes = {path: path.stat().st_size for path in files}
     gzip_total = sum(len(gzip.compress(path.read_bytes())) for path in files)
     shard_sizes = [size for path, size in raw_sizes.items() if path.parent.name == 'words']
     search_sizes = [size for path, size in raw_sizes.items() if path.parent.name == 'search']
-    pair_count = sum(len(occurrences) // 2 for occurrences in occurrences_by_word.values())
-    raw_total = sum(raw_sizes.values())
-    print(f'Protokolle: {protocol_count}')
-    print(f'Wörter: {len(occurrences_by_word)}, Paare aus Protokoll und Anzahl: {pair_count}')
-    print(f'Gesamt: {raw_total / 1e6:.1f} MB roh, {gzip_total / 1e6:.1f} MB gzip '
-          f'({raw_total / pair_count:.1f} bzw. {gzip_total / pair_count:.1f} Byte pro Paar)')
+    pair_count = sum(len(occurrences) // 2 for occurrences in corpus.occurrences_by_lemma.values())
+    print(f'Protokolle: {len(corpus.entries)}')
+    print(f'Lemmata: {len(corpus.occurrences_by_lemma)} aus {len(corpus.lemma_of_form)} Wortformen, '
+          f'Paare aus Protokoll und Anzahl: {pair_count}')
+    print(f'Gesamt: {sum(raw_sizes.values()) / 1e6:.1f} MB roh, {gzip_total / 1e6:.1f} MB gzip')
     print(f'Teildateien: {len(shard_sizes)}, größte {max(shard_sizes) / 1e6:.2f} MB, '
           f'Mittel {sum(shard_sizes) / len(shard_sizes) / 1e3:.0f} KB')
     print(f'Suchindex: {len(search_sizes)} Dateien, {sum(search_sizes) / 1e6:.1f} MB, '
@@ -299,23 +377,21 @@ def parse_arguments() -> argparse.Namespace:
 
 def main() -> None:
     arguments = parse_arguments()
-    entries, occurrences_by_word = load_previous(arguments.previous) if arguments.previous else ([], {})
-    print(f'{len(entries)} Protokolle aus dem vorigen Export', file=sys.stderr)
+    corpus = load_previous(arguments.previous) if arguments.previous else Corpus()
+    print(f'{len(corpus.entries)} Protokolle aus dem vorigen Export', file=sys.stderr)
 
     candidates = read_xml_protocols(arguments.input) if arguments.input else []
     if arguments.fetch_dip:
-        candidates += fetch_dip_protocols(os.environ['DIP_API_KEY'], dip_start_date(entries))
-    new_protocols = unknown_protocols(candidates, entries, set(arguments.wahlperiode))
+        candidates += fetch_dip_protocols(os.environ['DIP_API_KEY'], dip_start_date(corpus.entries))
+    new_protocols = unknown_protocols(candidates, corpus.entries, set(arguments.wahlperiode))
     print(f'{len(new_protocols)} neue Protokolle', file=sys.stderr)
 
-    add_protocols(entries, occurrences_by_word, new_protocols)
-    entries = sort_chronologically(entries, occurrences_by_word)
-    series_by_word = {word: encode_series(occurrences) for word, occurrences in occurrences_by_word.items()}
-    shards = split_into_shards(series_by_word, INITIAL_SHARD_KEY_LENGTH)
-    del series_by_word
-    write_output(arguments.output, entries, shards, build_search_index(occurrences_by_word))
-    verify_round_trip(arguments.output, occurrences_by_word)
-    report_sizes(arguments.output, occurrences_by_word, len(entries))
+    add_protocols(corpus, new_protocols)
+    sort_chronologically(corpus)
+    shards = split_into_shards(word_entries(corpus), INITIAL_SHARD_KEY_LENGTH)
+    write_output(arguments.output, corpus.entries, shards, build_search_index(corpus))
+    verify_round_trip(arguments.output, corpus)
+    report_sizes(arguments.output, corpus)
 
 
 if __name__ == '__main__':

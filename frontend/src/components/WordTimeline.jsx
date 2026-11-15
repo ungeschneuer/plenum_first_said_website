@@ -14,6 +14,27 @@ import { Alert, AlertDescription } from './ui/alert';
 import { Separator } from './ui/separator';
 import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group';
 
+const VISIBLE_FORM_COUNT = 15;
+
+function WordForms({ forms, lemma }) {
+  const otherForms = forms.filter(([form]) => form !== lemma);
+  if (otherForms.length === 0) return null;
+  const visibleForms = forms.slice(0, VISIBLE_FORM_COUNT);
+  const hiddenCount = forms.length - visibleForms.length;
+  return (
+    <p className="mb-6 text-sm text-muted-foreground">
+      Zusammengefasst sind die Formen{' '}
+      {visibleForms.map(([form, count], index) => (
+        <span key={form}>
+          {index > 0 && (index === visibleForms.length - 1 && hiddenCount === 0 ? ' und ' : ', ')}
+          <span className="font-medium text-foreground">{form}</span> ({count.toLocaleString('de-DE')})
+        </span>
+      ))}
+      {hiddenCount > 0 && <> und {hiddenCount.toLocaleString('de-DE')} weitere</>}.
+    </p>
+  );
+}
+
 export default function WordTimeline() {
   const { word } = useParams();
   const navigate = useNavigate();
@@ -37,6 +58,10 @@ export default function WordTimeline() {
           getWordDetails(word)
         ]);
 
+        if (details.word !== word) {
+          navigate(`/wort/${encodeURIComponent(details.word)}`, { replace: true });
+          return;
+        }
         setTimelineData(timeline);
         setWordDetails(details);
       } catch (err) {
@@ -89,7 +114,7 @@ export default function WordTimeline() {
 
       {/* Page Title */}
       <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">{word}</h1>
+        <h1 className="text-4xl font-bold mb-2">{wordDetails?.word ?? word}</h1>
         <p className="text-muted-foreground">Worthäufigkeitsverlauf im Bundestag</p>
       </div>
 
@@ -128,64 +153,7 @@ export default function WordTimeline() {
           </Card>
         </div>
 
-        {/* Abbreviation — shown when word is an abbreviation */}
-        {wordDetails.is_abbreviation && (
-          <div
-            className="flex flex-wrap items-center gap-2 mb-6"
-            aria-label="Abkürzung"
-          >
-            <span className="text-sm text-muted-foreground shrink-0">Abkürzung für:</span>
-            {wordDetails.full_form
-              ? <Badge variant="secondary">{wordDetails.full_form}</Badge>
-              : <span className="text-sm text-muted-foreground italic">unbekannt</span>
-            }
-          </div>
-        )}
-
-        {/* Inflected forms — only shown when variants exist */}
-        {(wordDetails.inflected_forms?.length > 1 || wordDetails.first_spoken_form) && (
-          <div
-            className="flex flex-wrap items-center gap-2 mb-6"
-            aria-label="Zusammengefasste grammatische Formen"
-          >
-            {wordDetails.inflected_forms?.length > 1 && (
-              <>
-                <span className="text-sm text-muted-foreground shrink-0">
-                  Fasst zusammen:
-                </span>
-                {wordDetails.inflected_forms.map((form, i) => (
-                  <Badge
-                    key={form}
-                    variant={i === 0 ? 'secondary' : 'outline'}
-                    className="font-mono"
-                  >
-                    {form}
-                  </Badge>
-                ))}
-              </>
-            )}
-            {wordDetails.first_spoken_form && (
-              <>
-                {wordDetails.inflected_forms?.length > 1 && (
-                  <span className="text-muted-foreground mx-1" aria-hidden="true">·</span>
-                )}
-                <span
-                  className="text-sm text-muted-foreground shrink-0"
-                  title="Diese Form steht im Originalprotokoll und kann in der PDF und bei OpenParliamentTV gesucht werden"
-                >
-                  Originalform:
-                </span>
-                <Badge
-                  variant="destructive"
-                  className="font-mono"
-                  title="Originalform aus dem Protokoll — zum Suchen in der PDF und bei OpenParliamentTV verwenden"
-                >
-                  {wordDetails.first_spoken_form}
-                </Badge>
-              </>
-            )}
-          </div>
-        )}
+        <WordForms forms={wordDetails.forms} lemma={wordDetails.word} />
         </>
       )}
 

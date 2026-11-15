@@ -4,11 +4,20 @@
 
 The site no longer needs the backend. `pipeline/export_static_data.py` counts every word per plenary
 protocol and writes static JSON files (protocol list, word series split by word prefix, search index);
-the frontend reads them directly. The workflow `.github/workflows/pages.yml` runs daily: it downloads the
+the frontend reads them directly.
+
+Word forms are counted per lemma. `pipeline/lemmatizer.py` combines the simplemma dictionary with rules for
+unknown compounds, participles and adjectives, keeps feminine forms as their own lemmas, keeps names intact,
+and maps old and reformed spelling to one lemma (Ausschuß, Ausschuss). Each word page lists the forms a lemma
+brings together. `pipeline/lemma_gold.tsv` is a hand-checked gold standard; `python -m unittest discover
+--start-directory pipeline --top-level-directory pipeline` checks the lemmatizer against it.
+
+The workflow `.github/workflows/pages.yml` runs daily: it downloads the
 previous data from the release `daten`, adds new protocols from the DIP API (secret `DIP_API_KEY`), saves
 the result back to the release and publishes the site on GitHub Pages.
 
 ```bash
+pip install -r pipeline/requirements.txt
 # full export from a folder of DIP XML files
 python pipeline/export_static_data.py --input xml --output static-data
 # continue an earlier export with new protocols from DIP
