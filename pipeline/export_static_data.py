@@ -45,6 +45,7 @@ from pathlib import Path
 
 from first_occurrence import first_occurrences, is_before_structured_protocols, needs_details
 from fragments import FragmentDetector
+from http_retry import fetch_json
 from lemmatizer import Lemmatizer
 from ocr_repair import split_glued_forms
 from protocol_text import extract_words
@@ -126,8 +127,7 @@ def fetch_dip_page(api_key: str, start_date: str, cursor: str | None) -> dict:
         parameters['cursor'] = cursor
     request = urllib.request.Request(f'{DIP_PROTOCOL_TEXT_URL}?{urllib.parse.urlencode(parameters)}',
                                      headers={'Authorization': f'ApiKey {api_key}'})
-    with urllib.request.urlopen(request, timeout=60) as response:
-        return json.load(response)
+    return fetch_json(request)
 
 
 def fetch_dip_protocols(api_key: str, start_date: str) -> list[NewProtocol]:

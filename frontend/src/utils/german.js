@@ -102,3 +102,11 @@ export function formatCalendarDate(dateString) {
     year: date.getFullYear()
   };
 }
+
+export function formatLongDate(dateString) {
+  return new Date(dateString).toLocaleDateString('de-DE', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
+export function formatNumber(number) {
+  return number.toLocaleString('de-DE');
+}

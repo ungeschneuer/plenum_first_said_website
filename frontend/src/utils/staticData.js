@@ -117,7 +117,14 @@ async function loadWord(word) {
   if (!entry) {
     throw new Error(`Das Wort „${word}“ kommt in keinem Protokoll vor`);
   }
-  return { lemma, series: entry.reihe, forms: Object.entries(entry.formen), firstSpeaker: entry.erste ?? null };
+  return {
+    lemma,
+    series: entry.reihe,
+    forms: Object.entries(entry.formen),
+    firstSpeaker: entry.erste ?? null,
+    evidence: entry.beleg ?? null,
+    groupCounts: entry.fraktionen ?? {},
+  };
 }
 
 export async function getWordTimeline(word) {
@@ -129,13 +136,18 @@ export async function getWordTimeline(word) {
 }
 
 export async function getWordDetails(word) {
-  const [protocols, { lemma, series, forms, firstSpeaker }] = await Promise.all([loadProtocols(), loadWord(word)]);
+  const [protocols, { lemma, series, forms, firstSpeaker, evidence, groupCounts }] = await Promise.all([
+    loadProtocols(),
+    loadWord(word),
+  ]);
   const occurrences = decodeSeries(series);
   const firstProtocol = protocols[occurrences[0].protocolIndex];
   return {
     word: lemma,
     forms,
     first_speaker: firstSpeaker,
+    evidence,
+    group_counts: groupCounts,
     first_date: firstProtocol.datum,
     wahlperiode: firstProtocol.wahlperiode,
     protokollnummer: sessionNumber(firstProtocol),
@@ -165,6 +177,18 @@ export async function searchWords(query, limit = 20) {
     }
   }
   return { items: matches.slice(0, limit), pagination: { total: matches.length } };
+}
+
+export async function getGroupTotals() {
+  try {
+    return await loadJson('fraktionen.json');
+  } catch {
+    return {};
+  }
+}
+
+export async function getRecentlyFirstSaid() {
+  return loadJson('neue-woerter.json');
 }
 
 export async function getStatus() {

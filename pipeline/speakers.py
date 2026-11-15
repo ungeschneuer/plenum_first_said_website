@@ -19,6 +19,7 @@ import xml.etree.ElementTree as ElementTree
 from collections.abc import Iterator, Mapping
 from pathlib import Path
 
+from http_retry import fetch_bytes
 from protocol_text import words_of
 
 OPEN_DATA_PAGE = 'https://www.bundestag.de/services/opendata'
@@ -46,9 +47,7 @@ GOVERNMENT_ROLES = re.compile(r'minister|kanzler|staatssekretär|beauftragt', re
 
 
 def fetch(url: str) -> bytes:
-    request = urllib.request.Request(url, headers={'User-Agent': USER_AGENT})
-    with urllib.request.urlopen(request, timeout=60) as response:
-        body = response.read()
+    body = fetch_bytes(urllib.request.Request(url, headers={'User-Agent': USER_AGENT}))
     time.sleep(SECONDS_BETWEEN_REQUESTS)
     return body
 

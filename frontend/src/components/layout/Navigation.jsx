@@ -10,6 +10,7 @@ export function Navigation() {
   const [isOpen, setIsOpen] = useState(false);
 
   const mainNavLinks = [
+    { to: '/neu', label: 'Neu im Bundestag' },
     { to: '/vergleich', label: 'Wortvergleich' },
   ];
 

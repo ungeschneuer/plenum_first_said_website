@@ -1,23 +1,57 @@
-import { useState, useEffect, useRef } from 'react';
-import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar, FileText, ExternalLink, Video, TrendingUp, ZoomOut, BarChart3, LineChart, GitCompare } from 'lucide-react';
-import { getWordTimeline, getWordDetails } from '../utils/staticData';
+import { useEffect, useRef, useState } from 'react';
+import { Link, useNavigate, useParams } from 'react-router-dom';
+import { getGroupTotals, getWordDetails, getWordTimeline } from '../utils/staticData';
 import Chart from './Chart';
-import { formatGermanDate, formatLegislature, formatLegislatureShort, germanPlurals } from '../utils/german';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
-import { Badge } from './ui/badge';
-import { Button } from './ui/button';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
+import { formatGermanDate, formatLongDate, formatNumber } from '../utils/german';
 import { Skeleton } from './ui/skeleton';
 import { Alert, AlertDescription } from './ui/alert';
-import { Separator } from './ui/separator';
 import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group';
 
 const VISIBLE_FORM_COUNT = 15;
+const WORDS_PER_RATE = 10000;
+const AGGREGATIONS = [
+  ['protocol', 'Sitzung'],
+  ['month', 'Monat'],
+  ['year', 'Jahr'],
+  ['legislature', 'Wahlperiode'],
+];
 
-function describeSpeaker({ fraktion, rolle }) {
-  return [fraktion, rolle].filter(Boolean).join(', ');
+function speakerDescription({ name, fraktion, rolle, zwischenruf }) {
+  const affiliation = [fraktion, rolle].filter(Boolean).join(', ');
+  const person = affiliation ? `${name} (${affiliation})` : name;
+  return zwischenruf ? `in einem Zwischenruf von ${person}` : `gesagt von ${person}`;
+}
+
+function FirstOccurrence({ details, timeline }) {
+  const sessions = timeline.filter((point) => point.count > 0).length;
+  return (
+    <section className="space-y-4">
+      <p className="text-lg leading-relaxed">
+        Zum ersten Mal fiel das Wort am {formatLongDate(details.first_date)} in der {details.protokollnummer}. Sitzung
+        der {details.wahlperiode}. Wahlperiode{details.first_speaker && <>, {speakerDescription(details.first_speaker)}</>}.
+        Seitdem kam es {formatNumber(details.total_count)}-mal in {formatNumber(sessions)} von{' '}
+        {formatNumber(timeline.length)} Sitzungen vor.
+      </p>
+      {details.evidence && (
+        <figure className="border-l-2 border-border pl-4">
+          <blockquote className="italic leading-relaxed">„{details.evidence}“</blockquote>
+          <figcaption className="mt-2 text-sm text-muted-foreground">
+            Plenarprotokoll {details.wahlperiode}/{details.protokollnummer},{' '}
+            <a href={details.pdf_url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+              als PDF
+            </a>
+          </figcaption>
+        </figure>
+      )}
+      {!details.evidence && details.pdf_url && (
+        <p className="text-sm text-muted-foreground">
+          <a href={details.pdf_url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+            Protokoll der ersten Sitzung als PDF
+          </a>
+        </p>
+      )}
+    </section>
+  );
 }
 
 function WordForms({ forms, lemma }) {
@@ -26,325 +60,215 @@ function WordForms({ forms, lemma }) {
   const visibleForms = forms.slice(0, VISIBLE_FORM_COUNT);
   const hiddenCount = forms.length - visibleForms.length;
   return (
-    <p className="mb-6 text-sm text-muted-foreground">
+    <p className="text-sm text-muted-foreground">
       Zusammengefasst sind die Formen{' '}
       {visibleForms.map(([form, count], index) => (
         <span key={form}>
           {index > 0 && (index === visibleForms.length - 1 && hiddenCount === 0 ? ' und ' : ', ')}
-          <span className="font-medium text-foreground">{form}</span> ({count.toLocaleString('de-DE')})
+          <span className="font-medium text-foreground">{form}</span> ({formatNumber(count)})
         </span>
       ))}
-      {hiddenCount > 0 && <> und {hiddenCount.toLocaleString('de-DE')} weitere</>}.
+      {hiddenCount > 0 && <> und {formatNumber(hiddenCount)} weitere</>}.
     </p>
+  );
+}
+
+function FrequencyChart({ timeline }) {
+  const chartRef = useRef(null);
+  const [showPercentage, setShowPercentage] = useState(false);
+  const [aggregation, setAggregation] = useState('protocol');
+  return (
+    <section className="space-y-4">
+      <h2 className="text-xl font-semibold">Verlauf</h2>
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3 text-sm">
+        <ToggleGroup
+          type="single"
+          value={aggregation}
+          onValueChange={(value) => value && setAggregation(value)}
+          aria-label="Zeitraum zusammenfassen"
+        >
+          {AGGREGATIONS.map(([value, label]) => (
+            <ToggleGroupItem key={value} value={value}>
+              {label}
+            </ToggleGroupItem>
+          ))}
+        </ToggleGroup>
+        <label className="flex cursor-pointer items-center gap-2">
+          <input type="checkbox" checked={showPercentage} onChange={(event) => setShowPercentage(event.target.checked)} />
+          Anteil an allen Wörtern
+        </label>
+        <button type="button" className="underline underline-offset-2" onClick={() => chartRef.current?.resetZoom()}>
+          Ausschnitt zurücksetzen
+        </button>
+      </div>
+      <p className="text-sm text-muted-foreground">
+        Jede Sitzung ist ein Punkt, auch ohne Vorkommen. Mausrad oder zwei Finger zoomen, Ziehen verschiebt, ein Klick
+        auf einen Punkt öffnet das Protokoll.
+      </p>
+      <Chart ref={chartRef} timelineData={timeline} showPercentage={showPercentage} aggregation={aggregation} />
+    </section>
+  );
+}
+
+function GroupTable({ groupCounts, groupTotals }) {
+  const terms = Object.keys(groupCounts).sort((first, second) => Number(second) - Number(first));
+  if (terms.length === 0) return null;
+  return (
+    <section className="space-y-4">
+      <h2 className="text-xl font-semibold">Nach Fraktion</h2>
+      <p className="text-sm text-muted-foreground">
+        Wie oft Abgeordnete einer Fraktion und Mitglieder der Bundesregierung das Wort in ihren Reden gebraucht haben,
+        ab der 19. Wahlperiode. Der Anteil bezieht sich auf alle Wörter, die die Fraktion in der Wahlperiode gesagt hat;
+        er macht große und kleine Fraktionen vergleichbar. Zwischenrufe und die Sitzungsleitung zählen nicht.
+      </p>
+      {terms.map((term) => {
+        const rows = Object.entries(groupCounts[term]).sort((first, second) => second[1] - first[1]);
+        return (
+          <div key={term} className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <caption className="mb-2 text-left font-medium">{term}. Wahlperiode</caption>
+              <thead>
+                <tr className="border-b border-border text-left text-muted-foreground">
+                  <th className="py-1 pr-4 font-normal">Fraktion</th>
+                  <th className="py-1 pr-4 text-right font-normal">Anzahl</th>
+                  <th className="py-1 text-right font-normal">je {formatNumber(WORDS_PER_RATE)} Wörter</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map(([group, count]) => {
+                  const total = groupTotals[term]?.[group];
+                  return (
+                    <tr key={group} className="border-b border-border/50">
+                      <td className="py-1 pr-4">{group}</td>
+                      <td className="py-1 pr-4 text-right tabular-nums">{formatNumber(count)}</td>
+                      <td className="py-1 text-right tabular-nums">
+                        {total ? ((count / total) * WORDS_PER_RATE).toLocaleString('de-DE', { maximumFractionDigits: 2 }) : ''}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        );
+      })}
+    </section>
+  );
+}
+
+function SessionList({ timeline }) {
+  const sessions = timeline.filter((point) => point.count > 0).reverse();
+  return (
+    <section>
+      <details>
+        <summary className="cursor-pointer text-xl font-semibold">
+          Alle {formatNumber(sessions.length)} Sitzungen mit diesem Wort
+        </summary>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border text-left text-muted-foreground">
+                <th className="py-1 pr-4 font-normal">Datum</th>
+                <th className="py-1 pr-4 font-normal">Sitzung</th>
+                <th className="py-1 pr-4 text-right font-normal">Anzahl</th>
+                <th className="py-1 text-right font-normal">Anteil</th>
+              </tr>
+            </thead>
+            <tbody>
+              {sessions.map((point) => (
+                <tr key={point.protocol_id} className="border-b border-border/50">
+                  <td className="py-1 pr-4">{formatGermanDate(point.date)}</td>
+                  <td className="py-1 pr-4">
+                    <a href={point.pdf_url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
+                      {point.wahlperiode}/{point.protokollnummer}
+                    </a>
+                  </td>
+                  <td className="py-1 pr-4 text-right tabular-nums">{formatNumber(point.count)}</td>
+                  <td className="py-1 text-right tabular-nums">{point.percentage.toFixed(4)} %</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
+    </section>
   );
 }
 
 export default function WordTimeline() {
   const { word } = useParams();
   const navigate = useNavigate();
-  const [timelineData, setTimelineData] = useState([]);
-  const [wordDetails, setWordDetails] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [timeline, setTimeline] = useState([]);
+  const [details, setDetails] = useState(null);
+  const [groupTotals, setGroupTotals] = useState({});
   const [error, setError] = useState(null);
-  const [showPercentage, setShowPercentage] = useState(false);
-  const [chartType, setChartType] = useState('line');
-  const [aggregation, setAggregation] = useState('protocol'); // protocol, month, year, legislature
-  const chartRef = useRef(null);
 
   useEffect(() => {
-    async function fetchData() {
-      setLoading(true);
-      setError(null);
-
-      try {
-        const [timeline, details] = await Promise.all([
-          getWordTimeline(word),
-          getWordDetails(word)
-        ]);
-
-        if (details.word !== word) {
-          navigate(`/wort/${encodeURIComponent(details.word)}`, { replace: true });
+    let cancelled = false;
+    setDetails(null);
+    setError(null);
+    Promise.all([getWordTimeline(word), getWordDetails(word), getGroupTotals()])
+      .then(([loadedTimeline, loadedDetails, loadedTotals]) => {
+        if (cancelled) return;
+        if (loadedDetails.word !== word) {
+          navigate(`/wort/${encodeURIComponent(loadedDetails.word)}`, { replace: true });
           return;
         }
-        setTimelineData(timeline);
-        setWordDetails(details);
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    }
+        setTimeline(loadedTimeline);
+        setDetails(loadedDetails);
+        setGroupTotals(loadedTotals);
+      })
+      .catch((loadError) => !cancelled && setError(loadError.message));
+    return () => {
+      cancelled = true;
+    };
+  }, [word, navigate]);
 
-    fetchData();
-  }, [word]);
-
-  const protocolsWithWord = timelineData.filter((point) => point.count > 0);
-
-  if (loading) {
+  if (error) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Skeleton className="h-8 w-32 mb-6" />
-        <Skeleton className="h-12 w-64 mb-8" />
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          <Skeleton className="h-24" />
-          <Skeleton className="h-24" />
-        </div>
-        <Skeleton className="h-96" />
+      <div className="mx-auto max-w-3xl px-4 py-10 sm:px-6">
+        <Alert variant="destructive" role="alert">
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <p className="mt-4">
+          <Link to="/" className="underline underline-offset-2">
+            Zur Suche
+          </Link>
+        </p>
       </div>
     );
   }
 
-  if (error) {
+  if (!details) {
     return (
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <Alert variant="destructive" role="alert">
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-        <Button onClick={() => navigate('/')} className="mt-4" variant="outline" aria-label="Zurück zur Suche">
-          <ArrowLeft className="h-4 w-4 mr-2" aria-hidden="true" />
-          Zurück zur Suche
-        </Button>
+      <div className="mx-auto max-w-3xl space-y-4 px-4 py-10 sm:px-6">
+        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-80 w-full" />
       </div>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      {/* Back Button */}
-      <Button variant="ghost" onClick={() => navigate('/')} className="mb-6" aria-label="Zurück zur Suche">
-        <ArrowLeft className="h-4 w-4 mr-2" aria-hidden="true" />
-        Zurück zur Suche
-      </Button>
-
-      {/* Page Title */}
-      <div className="mb-8">
-        <h1 className="text-4xl font-bold mb-2">{wordDetails?.word ?? word}</h1>
-        <p className="text-muted-foreground">Worthäufigkeitsverlauf im Bundestag</p>
-      </div>
-
-      {/* Word Details */}
-      {wordDetails && (
-        <>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <Calendar className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                <CardTitle className="text-sm font-medium">Erstes Vorkommen</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{formatGermanDate(wordDetails.first_date)}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                {formatLegislature(wordDetails.wahlperiode, wordDetails.protokollnummer)}
-              </p>
-              {wordDetails.first_speaker && (
-                <p className="mt-2 text-sm">
-                  Zuerst gesagt von {wordDetails.first_speaker.name}
-                  {describeSpeaker(wordDetails.first_speaker) && ` (${describeSpeaker(wordDetails.first_speaker)})`}
-                </p>
-              )}
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <TrendingUp className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                <CardTitle className="text-sm font-medium">Statistik</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold">{germanPlurals.vorkommen(wordDetails.total_count)}</div>
-              <p className="text-xs text-muted-foreground mt-1">
-                in {protocolsWithWord.length.toLocaleString('de-DE')} von {timelineData.length.toLocaleString('de-DE')} Protokollen
-              </p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <WordForms forms={wordDetails.forms} lemma={wordDetails.word} />
-        </>
-      )}
-
-      {/* Actions Bar */}
-      <div className="flex flex-wrap gap-3 mb-8">
-        {/* Comparison Link */}
-        <Button variant="default" asChild>
-          <Link to={`/vergleich?words=${encodeURIComponent(word)}`}>
-            <GitCompare className="h-4 w-4 mr-2" aria-hidden="true" />
-            Mit anderen Wörtern vergleichen
+    <article className="mx-auto max-w-3xl space-y-10 px-4 py-10 sm:px-6">
+      <header className="space-y-2">
+        <p className="text-sm">
+          <Link to="/" className="underline underline-offset-2">
+            Suche
           </Link>
-        </Button>
-
-        {/* External Links */}
-        {wordDetails && wordDetails.pdf_url && (
-          <Button variant="outline" asChild>
-            <a href={wordDetails.pdf_url} target="_blank" rel="noopener noreferrer" aria-label="PDF Protokoll ansehen (öffnet in neuem Tab)">
-              <FileText className="h-4 w-4 mr-2" aria-hidden="true" />
-              PDF ansehen
-              <ExternalLink className="h-3 w-3 ml-2" aria-hidden="true" />
-            </a>
-          </Button>
-        )}
-        {wordDetails && wordDetails.optv_link && (
-          <Button variant="outline" asChild>
-            <a href={wordDetails.optv_link} target="_blank" rel="noopener noreferrer" aria-label="Video ansehen (öffnet in neuem Tab)">
-              <Video className="h-4 w-4 mr-2" aria-hidden="true" />
-              Video ansehen
-              <ExternalLink className="h-3 w-3 ml-2" aria-hidden="true" />
-            </a>
-          </Button>
-        )}
-      </div>
-
-      {/* Tabs for Chart and Details */}
-      <Tabs defaultValue="chart" className="space-y-6">
-        <TabsList>
-          <TabsTrigger value="chart">Häufigkeitszeitachse</TabsTrigger>
-          <TabsTrigger value="details">Protokolldetails</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="chart" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex flex-col gap-4">
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <CardTitle>Häufigkeitsverlauf</CardTitle>
-                  <div className="flex flex-wrap items-center gap-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        if (chartRef.current) {
-                          chartRef.current.resetZoom();
-                        }
-                      }}
-                      aria-label="Zoom zurücksetzen"
-                    >
-                      <ZoomOut className="h-4 w-4 mr-2" aria-hidden="true" />
-                      Zoom zurücksetzen
-                    </Button>
-                    <label htmlFor="show-percentage" className="flex items-center gap-2 text-sm cursor-pointer">
-                      <input
-                        id="show-percentage"
-                        type="checkbox"
-                        checked={showPercentage}
-                        onChange={(e) => setShowPercentage(e.target.checked)}
-                        className="rounded border-gray-300"
-                      />
-                      <span>Als Prozentsatz anzeigen</span>
-                    </label>
-                  </div>
-                </div>
-
-                {/* Chart Type Selector */}
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-sm font-medium text-muted-foreground">Diagrammtyp:</span>
-                  <ToggleGroup
-                    type="single"
-                    value={chartType}
-                    onValueChange={(value) => value && setChartType(value)}
-                    aria-label="Diagrammtyp auswählen"
-                  >
-                    <ToggleGroupItem value="line" aria-label="Liniendiagramm">
-                      <LineChart className="h-4 w-4 mr-2" aria-hidden="true" />
-                      Linie
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="bar" aria-label="Balkendiagramm">
-                      <BarChart3 className="h-4 w-4 mr-2" aria-hidden="true" />
-                      Balken
-                    </ToggleGroupItem>
-                  </ToggleGroup>
-                </div>
-
-                {/* Aggregation Selector */}
-                <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-sm font-medium text-muted-foreground">Zeitraum:</span>
-                  <ToggleGroup
-                    type="single"
-                    value={aggregation}
-                    onValueChange={(value) => value && setAggregation(value)}
-                    aria-label="Aggregationszeitraum auswählen"
-                  >
-                    <ToggleGroupItem value="protocol" aria-label="Nach Protokoll">
-                      Protokoll
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="month" aria-label="Nach Monat">
-                      Monat
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="year" aria-label="Nach Jahr">
-                      Jahr
-                    </ToggleGroupItem>
-                    <ToggleGroupItem value="legislature" aria-label="Nach Wahlperiode">
-                      Wahlperiode
-                    </ToggleGroupItem>
-                  </ToggleGroup>
-                </div>
-              </div>
-              <CardDescription className="mt-2">
-                Jedes Protokoll ist ein Punkt, auch ohne Vorkommen. Mausrad zum Zoomen, ziehen zum Verschieben, Punkt anklicken öffnet das PDF des Protokolls.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Chart ref={chartRef} timelineData={timelineData} showPercentage={showPercentage} chartType={chartType} aggregation={aggregation} />
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="details">
-          <Card>
-            <CardHeader>
-              <CardTitle>Protokolldetails</CardTitle>
-              <CardDescription>
-                Detaillierte Aufschlüsselung nach Sitzungsprotokoll
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <caption className="sr-only">
-                  Detaillierte Aufschlüsselung der Worthäufigkeit nach Protokoll
-                </caption>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Datum</TableHead>
-                    <TableHead>WP</TableHead>
-                    <TableHead>Protokoll</TableHead>
-                    <TableHead className="text-right">Anzahl</TableHead>
-                    <TableHead className="text-right">Prozentsatz</TableHead>
-                    <TableHead><span className="sr-only">Aktionen</span></TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {protocolsWithWord.map((point, index) => (
-                    <TableRow key={index}>
-                      <TableCell>{formatGermanDate(point.date)}</TableCell>
-                      <TableCell>
-                        <Badge variant="outline">{point.wahlperiode}</Badge>
-                      </TableCell>
-                      <TableCell>{point.protokollnummer}</TableCell>
-                      <TableCell className="text-right font-medium">{point.count}</TableCell>
-                      <TableCell className="text-right text-muted-foreground">
-                        {point.percentage.toFixed(4)}%
-                      </TableCell>
-                      <TableCell>
-                        {point.pdf_url && (
-                          <Button variant="ghost" size="sm" asChild>
-                            <a href={point.pdf_url} target="_blank" rel="noopener noreferrer" aria-label="PDF Protokoll ansehen">
-                              <FileText className="h-4 w-4" aria-hidden="true" />
-                              <span className="sr-only">PDF ansehen</span>
-                            </a>
-                          </Button>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-    </div>
+        </p>
+        <h1 className="text-4xl font-bold">{details.word}</h1>
+      </header>
+      <FirstOccurrence details={details} timeline={timeline} />
+      <WordForms forms={details.forms} lemma={details.word} />
+      <FrequencyChart timeline={timeline} />
+      <GroupTable groupCounts={details.group_counts} groupTotals={groupTotals} />
+      <SessionList timeline={timeline} />
+      <p className="text-sm">
+        <Link to={`/vergleich?words=${encodeURIComponent(details.word)}`} className="underline underline-offset-2">
+          Mit anderen Wörtern vergleichen
+        </Link>
+      </p>
+    </article>
   );
 }

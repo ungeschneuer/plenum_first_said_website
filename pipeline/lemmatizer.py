@@ -39,7 +39,8 @@ LOWERCASE_ENDINGS = ('en', 'em', 'er', 'es', 'e')
 CAPITALISED_ENDINGS = ('es', 'en', 's', 'n')
 FEMININE_PLURAL_ENDING = 'innen'
 ADJECTIVE_SUFFIXES = ('isch', 'lich', 'ig', 'bar', 'los', 'haft', 'sam', 'iv', 'ell', 'ös')
-PRESENT_PARTICIPLE = re.compile(r'^([a-zäöüß]{3,}end)(e|en|em|er|es)?$')
+# spannend, fördernd (fördern), handelnd (handeln)
+PRESENT_PARTICIPLE = re.compile(r'^([a-zäöüß]{3,}(?:e|er|el)nd)(e|en|em|er|es)?$')
 MINIMUM_PARTICIPLE_LENGTH = 6
 TYPO_FREQUENCY_RATIO = 10
 UMLAUT_FREE = str.maketrans({'ä': 'a', 'ö': 'o', 'ü': 'u', 'ß': 'ss'})

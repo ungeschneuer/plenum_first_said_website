@@ -12,6 +12,7 @@ import SearchPage from './components/SearchPage';
 // Lazy load: All other components
 const WordTimeline = lazy(() => import('./components/WordTimeline'));
 const WordComparison = lazy(() => import('./components/WordComparison'));
+const RecentlyFirstSaid = lazy(() => import('./components/pages/RecentlyFirstSaid'));
 
 // Static pages - lazy load
 const NotFound = lazy(() => import('./components/pages/NotFound'));
@@ -57,6 +58,7 @@ function AppContent() {
             <Route path="/" element={<SearchPage />} />
             <Route path="/wort/:word" element={<WordTimeline />} />
             <Route path="/vergleich" element={<WordComparison />} />
+            <Route path="/neu" element={<RecentlyFirstSaid />} />
 
             {/* Static Pages */}
             <Route path="/impressum" element={<Impressum />} />
