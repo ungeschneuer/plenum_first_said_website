@@ -11,6 +11,9 @@ Output layout (below --output):
                         for lemmas and forms whose folded spelling starts with the prefix (its first
                         SEARCH_PREFIX_LENGTH characters, or the whole word if shorter)
 
+  neue-woerter.json   lemmas first said in the protocols of the last NEW_WORDS_DAYS days before the latest one,
+                      newest first: [{"lemma", "formen", "protokoll": {...}, "anzahl", "erste"}]; read by the bot
+
 A series stores one entry per protocol in which the lemma occurs. The first entry is the absolute
 protocol index, every further entry the gap to the previous one, which keeps the numbers small.
 Protocol texts are split into word forms by pipeline/protocol_text.py, fragments of words divided by line breaks
@@ -50,6 +53,7 @@ DIP_PROTOCOL_TEXT_URL = 'https://search.dip.bundestag.de/api/v1/plenarprotokoll-
 DIP_LOOKBACK_DAYS = 60
 # Protocols from this date on are written in reformed spelling; they decide between ß and ss in lemmas.
 REFORMED_SPELLING_SINCE = '2007-01-01'
+NEW_WORDS_DAYS = 90
 
 
 @dataclass
@@ -338,8 +342,21 @@ def build_search_index(corpus: Corpus) -> dict[str, list[list]]:
     return index
 
 
+def recently_first_said(corpus: Corpus) -> list[dict]:
+    latest = max(date.fromisoformat(entry['datum']) for entry in corpus.entries if entry['datum'])
+    since = (latest - timedelta(days=NEW_WORDS_DAYS)).isoformat()
+    forms = forms_by_lemma(corpus)
+    new_words = []
+    for lemma, occurrences in corpus.occurrences_by_lemma.items():
+        protocol = corpus.entries[occurrences[0]]
+        if protocol['datum'] >= since:
+            new_words.append({'lemma': lemma, 'formen': list(forms[lemma]), 'protokoll': protocol,
+                              'anzahl': occurrences[1], 'erste': corpus.first_speaker_of_lemma.get(lemma)})
+    return sorted(new_words, key=lambda word: (word['protokoll']['datum'], word['lemma']), reverse=True)
+
+
 def write_output(output_directory: Path, entries: list[dict], shards: dict[str, dict[str, dict]],
-                 search_index: dict[str, list[list]]) -> None:
+                 search_index: dict[str, list[list]], new_words: list[dict]) -> None:
     words_directory = output_directory / 'words'
     search_directory = output_directory / 'search'
     for directory in (words_directory, search_directory):
@@ -348,6 +365,7 @@ def write_output(output_directory: Path, entries: list[dict], shards: dict[str, 
             stale_file.unlink()
     (output_directory / 'protocols.json').write_bytes(serialize(entries))
     (output_directory / 'shards.json').write_bytes(serialize(sorted(shards)))
+    (output_directory / 'neue-woerter.json').write_bytes(serialize(new_words))
     for key, shard in shards.items():
         (words_directory / f'{key}.json').write_bytes(serialize(dict(sorted(shard.items()))))
     for prefix, search_entries in search_index.items():
@@ -424,7 +442,7 @@ def main() -> None:
         attach_first_speakers(corpus.entries, first_protocol_of_lemma(corpus), corpus.first_speaker_of_lemma,
                               corpus.lemma_of_form, arguments.speaker_cache)
     shards = split_into_shards(word_entries(corpus), INITIAL_SHARD_KEY_LENGTH)
-    write_output(arguments.output, corpus.entries, shards, build_search_index(corpus))
+    write_output(arguments.output, corpus.entries, shards, build_search_index(corpus), recently_first_said(corpus))
     verify_round_trip(arguments.output, corpus)
     report_sizes(arguments.output, corpus)
 

@@ -62,6 +62,17 @@ class ExportTest(unittest.TestCase):
         self.assertEqual(entry['formen'], {'Gesetzentwurf': 2, 'Gesetzentwürfe': 1})
         self.assertNotIn('erste', entry)
 
+    def test_new_words_list_the_lemmas_of_recent_protocols(self):
+        self.write_protocol(1, '01/1', '1949-09-07', 'Ein Gesetzentwurf liegt vor.')
+        self.write_protocol(2, '20/50', '2022-09-07', 'Das Deutschlandticket und der Gesetzentwurf.')
+        output = self.directory / 'out'
+        run_export('--input', str(self.input), '--output', str(output))
+        new_words = json.loads((output / 'neue-woerter.json').read_text())
+        lemmas = [word['lemma'] for word in new_words]
+        self.assertIn('Deutschlandticket', lemmas)
+        self.assertNotIn('Gesetzentwurf', lemmas)
+        self.assertEqual(new_words[0]['protokoll']['nummer'], '20/50')
+
     def test_rerun_without_new_protocols_changes_nothing(self):
         self.write_protocol(1, '01/1', '1949-09-07', 'Ein Gesetzentwurf liegt vor.')
         first, second = self.directory / 'first', self.directory / 'second'
