@@ -27,7 +27,8 @@ EXCUSED_MEMBERS = re.compile(
     r'.*?(?=\n\s*Anlage\s*\d*\s*\n|\Z)', re.DOTALL)
 IMPRINT_START = re.compile(r'(?:Gesamtherstellung|Druck und Vertrieb|Druck|Vertrieb)\s*:')
 URL = re.compile(r'(?:https?|ftp)://\S+|www\.\S+')
-HYPHEN_AT_LINE_END = re.compile(r'(\w+)-[ \t]*\n\s*(\w+)')
+# Text recognition sometimes puts the hyphen on a line of its own ("Euro\n-\npäer").
+HYPHEN_AT_LINE_END = re.compile(r'(\w+)(?:[ \t]*\n)?[ \t]*-[ \t]*\n\s*(\w+)')
 # "Außen-" before "und Innenpolitik" at a line break is an enumeration, not a split word.
 ENUMERATION_CONJUNCTIONS = {'und', 'oder', 'bzw', 'sowie', 'bis', 'wie'}
 SEPARATORS = re.compile('[#"!$%&\'()*+,‚.:;<=>?@\\[\\]^_`{|}~„“”‘’«»‹›–—…/ʼ\xa0\\s]+')

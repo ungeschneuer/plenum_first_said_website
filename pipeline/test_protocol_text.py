@@ -39,6 +39,11 @@ class ProtocolTextTest(unittest.TestCase):
         words = extract_words(protocol('BÜND-\nNIS 90/DIE GRÜ- \nNEN, Außen-\nund Innenpolitik, CDU/CSU-\nFraktion'))
         self.assertEqual(words, ['Beginn', 'Uhr', 'DIE', 'GRÜNEN', 'und', 'Innenpolitik', 'CDU', 'CSU-Fraktion'])
 
+    def test_hyphen_on_a_line_of_its_own(self):
+        words = extract_words(protocol('aller guten Euro\n-\npäer und\n- Aufzählungen'))
+        self.assertIn('Europäer', words)
+        self.assertIn('Aufzählungen', words)
+
     def test_enumeration_fragment_is_dropped_but_following_words_kept(self):
         words = extract_words(protocol('Bundes- und Landesrecht'))
         self.assertEqual(words[-2:], ['und', 'Landesrecht'])
