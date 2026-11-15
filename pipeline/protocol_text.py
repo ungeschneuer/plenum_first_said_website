@@ -8,6 +8,9 @@ excused members in the appendix and the printer's imprint at the end. Words spli
 also across a removed running head. Numbers, single letters, glued words with capitals inside and fragments of
 enumerations ("Bundes- und Landesrecht") are not counted; abbreviations such as AfD or CSU-Fraktion are.
 
+Lists of roll-call votes are not counted either: older texts print them as lines "Glüsing ja Nellen ja", current
+ones as a block of names after "Endgültiges Ergebnis".
+
 Lines that open a speech ("Dr. Schellenberg (SPD):") are printed, not spoken, and are not counted. A capitalised
 word right after a title or form of address ("General Handy", "Frau Klein", "Dr. Wolfgang Schäuble") is a name
 and counted as "Handy (Name)", so that it does not count for the word Handy. A second capitalised word belongs to
@@ -46,6 +49,15 @@ EXCUSED_MEMBERS = re.compile(
     r'(?:Liste der (?:entschuldigten|beurlaubten) Abgeordneten|Entschuldigte Abgeordnete|Beurlaubte Abgeordnete)'
     rf'.{{0,{MAXIMUM_EXCUSED_LIST_LENGTH}}}?(?=\n\s*Anlage\s*\d*\s*\n|\Z)', re.DOTALL)
 IMPRINT_START = re.compile(r'(?:Gesamtherstellung|Druck und Vertrieb|Druck|Vertrieb)\s*:')
+VOTE = r'(?:ja|nein|enthalten|entschuldigt|beurlaubt|krank|—|--|-)'
+VOTER = r"(?:Frau[ \t]+)?(?:Dr\.[ \t]*)?(?:[A-ZÄÖÜ][\w’'\-]*\.?[ \t]*){1,3}(?:\([^)\n]{1,30}\)[ \t]*)?"
+OLD_VOTE_LINE = re.compile(rf'^[ \t]*(?:{VOTER}[ \t.]+{VOTE}[ \t]*){{1,2}}$|^[ \t]*Name[ \t]+Abstimmung.*$',
+                           re.MULTILINE)
+# Under a result follow lines of names, groups and figures; the first line with ordinary lower-case words ends it.
+LIST_LINE_WORD = (r"(?:[A-ZÄÖÜ0-9(\[][^\s\xa0]*|von|van|vom|de|der|den|zu|dos|da|"
+                  r"(?:ja|nein|enthalten|davon|ungültig|gültig):?)")
+LIST_LINE = rf'[ \t\xa0]*(?:{LIST_LINE_WORD}[ \t\xa0]*)*'
+CURRENT_VOTE_LIST = re.compile(rf'(?:Endgültiges|Vorläufiges) Ergebnis[ \t]*\n(?:{LIST_LINE}\n)*')
 URL = re.compile(r'(?:https?|ftp)://\S+|www\.\S+')
 # Text recognition sometimes puts the hyphen on a line of its own ("Euro\n-\npäer").
 HYPHEN_AT_LINE_END = re.compile(r'(\w+)(?:[ \t]*\n)?[ \t]*-[ \t]*\n\s*(\w+)')
@@ -91,6 +103,10 @@ def without_print_layout(text: str) -> str:
     return without_imprint(without_excused_members(text))
 
 
+def without_vote_lists(text: str) -> str:
+    return CURRENT_VOTE_LIST.sub('', OLD_VOTE_LINE.sub('', text))
+
+
 def join_line_end_hyphenation(text: str) -> str:
     def join(match: re.Match) -> str:
         beginning, continuation = match.groups()
@@ -124,7 +140,7 @@ def is_countable(word: str) -> bool:
 
 def clean_text(text: str) -> str:
     """The spoken part of a protocol, without print layout and with words joined across line breaks."""
-    return join_line_end_hyphenation(URL.sub(' ', without_print_layout(from_session_start(text))))
+    return join_line_end_hyphenation(URL.sub(' ', without_vote_lists(without_print_layout(from_session_start(text)))))
 
 
 def words_of(passage: str) -> list[str]:
@@ -171,12 +187,22 @@ def acts_as_title(word: str, word_before: str | None) -> bool:
     return word in TITLES and not (word in NOUNS_AS_FORM_OF_ADDRESS and word_before in DETERMINERS)
 
 
+def glued_after_form_of_address(word: str, previous_word: str | None) -> bool:
+    """Text recognition glues "Herr Bundeskanzler in seiner" into "Herr Bundeskanzlerin"; Herr never takes -in."""
+    return previous_word in ('Herr', 'Herrn') and word.endswith('in') and word[:-2] in TITLES
+
+
 def words_with_positions(passage: str) -> Iterator[tuple[str, int, int]]:
     """Countable words with their position; names after titles carry NAME_SUFFIX."""
     previous_word, previous_end, previous_is_title, name_parts, word_before = None, 0, False, 0, None
     for match in TOKEN.finditer(passage):
         word = match.group(0)
         if not is_countable(word):
+            continue
+        if glued_after_form_of_address(word, previous_word):
+            yield word[:-2], match.start(), match.end() - 2
+            yield 'in', match.end() - 2, match.end()
+            previous_word, previous_end, previous_is_title, name_parts = 'in', match.end(), False, 0
             continue
         follows = previous_word is not None and directly_follows(passage, previous_word, previous_end, match.start())
         starts_name = follows and previous_is_title and is_capitalised(word) and word not in TITLES

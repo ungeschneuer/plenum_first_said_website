@@ -85,6 +85,23 @@ class ProtocolTextTest(unittest.TestCase):
             self.assertIn(word, words)
         self.assertNotIn('Handy', words)
 
+    def test_roll_call_vote_lists_are_not_counted(self):
+        words = extract_words(protocol('Wir stimmen ab.\nName Abstimmung Name Abstimmung\nGlüsing  ja Nellen  ja\n'
+                                       'Frau Dr. Gröwel \t -- Frau Niggemeyer \t ja\nGockeln \t  entschuldigt\n'
+                                       'Endgültiges Ergebnis\nAbgegebene Stimmen:\t643;\nJa\nCDU/CSU\n'
+                                       'Stephan Albani\nPeter Altmaier\n'
+                                       'Der nächste Redner ist der Kollege Otto Fricke, und er spricht jetzt zur Rentenreform.\n'
+                                       'Ich sage ja'))
+        for name in ('Glüsing', 'Nellen', 'Gröwel', 'Gockeln', 'Albani', 'Altmaier', 'Abstimmung'):
+            self.assertNotIn(name, words)
+        for word in ('stimmen', 'Rentenreform', 'sage'):
+            self.assertIn(word, words)
+
+    def test_glued_title_after_herr_is_split(self):
+        words = extract_words(protocol('Nun hat der Herr Bundeskanzlerin seiner Regierungserklärung gesagt.'))
+        self.assertNotIn('Bundeskanzlerin', words)
+        self.assertIn('Bundeskanzler', words)
+
     def test_speaker_lines_are_not_counted(self):
         words = extract_words(protocol('Dr. Schellenberg (SPD): Herr Präsident! Die Rentenreform.\n'
                                        'Vizepräsidentin Petra Pau:\nDas Wort hat der Kollege.'))
