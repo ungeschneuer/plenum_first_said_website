@@ -91,6 +91,7 @@ jobs:
           SITE_BASE: /${{ github.event.repository.name }}/
         run: |
           npm ci
+          npm test
           npm run build
           # GitHub Pages kennt keine Weiterleitung auf index.html; die 404-Seite lädt dieselbe App.
           cp dist/index.html dist/404.html

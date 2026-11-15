@@ -1,0 +1,57 @@
+name: Daten vollständig neu aufbauen
+
+# Nötig, wenn sich Tokenisierung, Bruchstückfilter oder Lemmatisierung ändern: Wortformen behalten sonst ihr Lemma.
+# Holt alle Protokolle aus DIP, ersetzt den Datenstand im Release und veröffentlicht danach die Seite.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  DATA_RELEASE: daten
+  DATA_ARCHIVE: static-data.tar.gz
+
+jobs:
+  rebuild:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+
+      - name: Lemmatisierung prüfen
+        run: |
+          pip install -r pipeline/requirements.txt
+          python -m unittest discover --start-directory pipeline --top-level-directory pipeline
+
+      - name: Alle Protokolle aus DIP zählen
+        env:
+          DIP_API_KEY: ${{ secrets.DIP_API_KEY }}
+        run: python pipeline/export_static_data.py --fetch-dip --fetch-dip-from 1949-01-01 --output static-data
+
+      - name: Bisherigen Datenstand aufheben und neuen speichern
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          backup="static-data-vor-neuaufbau-$(date +%Y-%m-%d).tar.gz"
+          gh release download "$DATA_RELEASE" --pattern "$DATA_ARCHIVE" --output "$RUNNER_TEMP/$backup"
+          gh release upload "$DATA_RELEASE" "$RUNNER_TEMP/$backup" --clobber
+          tar -czf "$RUNNER_TEMP/$DATA_ARCHIVE" -C static-data .
+          gh release upload "$DATA_RELEASE" "$RUNNER_TEMP/$DATA_ARCHIVE" --clobber
+
+      - name: Seite veröffentlichen
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh workflow run pages.yml --ref main

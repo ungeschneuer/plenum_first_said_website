@@ -117,7 +117,7 @@ async function loadWord(word) {
   if (!entry) {
     throw new Error(`Das Wort „${word}“ kommt in keinem Protokoll vor`);
   }
-  return { lemma, series: entry.reihe, forms: Object.entries(entry.formen) };
+  return { lemma, series: entry.reihe, forms: Object.entries(entry.formen), firstSpeaker: entry.erste ?? null };
 }
 
 export async function getWordTimeline(word) {
@@ -129,12 +129,13 @@ export async function getWordTimeline(word) {
 }
 
 export async function getWordDetails(word) {
-  const [protocols, { lemma, series, forms }] = await Promise.all([loadProtocols(), loadWord(word)]);
+  const [protocols, { lemma, series, forms, firstSpeaker }] = await Promise.all([loadProtocols(), loadWord(word)]);
   const occurrences = decodeSeries(series);
   const firstProtocol = protocols[occurrences[0].protocolIndex];
   return {
     word: lemma,
     forms,
+    first_speaker: firstSpeaker,
     first_date: firstProtocol.datum,
     wahlperiode: firstProtocol.wahlperiode,
     protokollnummer: sessionNumber(firstProtocol),

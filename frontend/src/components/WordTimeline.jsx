@@ -16,6 +16,10 @@ import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group';
 
 const VISIBLE_FORM_COUNT = 15;
 
+function describeSpeaker({ fraktion, rolle }) {
+  return [fraktion, rolle].filter(Boolean).join(', ');
+}
+
 function WordForms({ forms, lemma }) {
   const otherForms = forms.filter(([form]) => form !== lemma);
   if (otherForms.length === 0) return null;
@@ -134,6 +138,12 @@ export default function WordTimeline() {
               <p className="text-xs text-muted-foreground mt-1">
                 {formatLegislature(wordDetails.wahlperiode, wordDetails.protokollnummer)}
               </p>
+              {wordDetails.first_speaker && (
+                <p className="mt-2 text-sm">
+                  Zuerst gesagt von {wordDetails.first_speaker.name}
+                  {describeSpeaker(wordDetails.first_speaker) && ` (${describeSpeaker(wordDetails.first_speaker)})`}
+                </p>
+              )}
             </CardContent>
           </Card>
 

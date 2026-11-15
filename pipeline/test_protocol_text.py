@@ -1,0 +1,60 @@
+import unittest
+
+from protocol_text import extract_words
+
+TABLE_OF_CONTENTS = 'Inhalt: Tagesordnungspunkt 1 Haushaltsgesetz ' * 20
+# Single letters are not counted; they make the text after the session start long enough to be cut there.
+UNCOUNTED_FILLER = ' x' * 300
+
+
+def protocol(body: str) -> str:
+    return f'{TABLE_OF_CONTENTS}\nBeginn: 9.00 Uhr\n{body}\n{UNCOUNTED_FILLER}'
+
+
+class ProtocolTextTest(unittest.TestCase):
+    def test_table_of_contents_before_session_start_is_not_counted(self):
+        words = extract_words(protocol('Präsident: Die Sitzung ist eröffnet.'))
+        self.assertNotIn('Haushaltsgesetz', words)
+        self.assertIn('eröffnet', words)
+
+    def test_running_head_is_removed_and_word_across_it_joined(self):
+        text = protocol('Wir sprechen über die Organisa-\n'
+                        'Deutscher Bundestag – 16. Wahlperiode – 18. Sitzung. Berlin, Mittwoch, den 15. Februar 2006 1234\n'
+                        'tionsform des Bundestages.')
+        words = extract_words(text)
+        self.assertIn('Organisationsform', words)
+        self.assertNotIn('Wahlperiode', words)
+        self.assertNotIn('Mittwoch', words)
+
+    def test_excused_members_and_imprint_are_removed(self):
+        text = protocol('Die Sitzung ist geschlossen.\nAnlage 1\nEntschuldigte Abgeordnete\nMüller, Anna SPD\n'
+                        'Anlage 2\nZu Protokoll gegebene Rede zur Wärmepumpe\n'
+                        'Gesamtherstellung: Druckerei GmbH, Berlin')
+        words = extract_words(text)
+        self.assertNotIn('Müller', words)
+        self.assertNotIn('Druckerei', words)
+        self.assertIn('Wärmepumpe', words)
+
+    def test_line_break_hyphenation(self):
+        words = extract_words(protocol('BÜND-\nNIS 90/DIE GRÜ- \nNEN, Außen-\nund Innenpolitik, CDU/CSU-\nFraktion'))
+        self.assertEqual(words, ['Beginn', 'Uhr', 'DIE', 'GRÜNEN', 'und', 'Innenpolitik', 'CDU', 'CSU-Fraktion'])
+
+    def test_enumeration_fragment_is_dropped_but_following_words_kept(self):
+        words = extract_words(protocol('Bundes- und Landesrecht'))
+        self.assertEqual(words[-2:], ['und', 'Landesrecht'])
+
+    def test_abbreviations_are_kept_and_glued_words_dropped(self):
+        words = extract_words(protocol('Die AfD, die SPD und das BAföG; BürgerInnen und wordsGlued nicht.'))
+        self.assertIn('AfD', words)
+        self.assertIn('BAföG', words)
+        self.assertNotIn('BürgerInnen', words)
+        self.assertNotIn('wordsGlued', words)
+
+    def test_typographic_quotes_and_dashes_separate_words(self):
+        words = extract_words(protocol('„Wohnungsmangel“ – so die –Beifall… «Perestroika»'))
+        for word in ('Wohnungsmangel', 'Beifall', 'Perestroika'):
+            self.assertIn(word, words)
+
+
+if __name__ == '__main__':
+    unittest.main()
