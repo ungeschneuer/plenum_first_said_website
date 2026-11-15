@@ -4,6 +4,8 @@ Output layout (below --output):
   protocols.json      ordered list of protocols; a protocol's position is its index in every series
   shards.json         list of shard keys; a word lives in the longest key that prefixes its folded form
   words/<key>.json    {word: [index gap, count, index gap, count, ...]} per protocol the word occurs in
+  search/<prefix>.json  [[word, total count], ...] by descending count, for words whose folded form starts with
+                        the prefix (its first SEARCH_PREFIX_LENGTH characters, or the whole word if shorter)
 
 A series stores one entry per protocol in which the word occurs. The first entry is the absolute
 protocol index, every further entry the gap to the previous one, which keeps the numbers small.
@@ -23,6 +25,7 @@ from text_processing import extract_words, normalize_word  # noqa: E402
 
 TARGET_SHARD_BYTES = 1_000_000
 INITIAL_SHARD_KEY_LENGTH = 2
+SEARCH_PREFIX_LENGTH = 3
 LETTER_REPLACEMENTS = {'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss'}
 
 
@@ -132,6 +135,16 @@ def shard_key_for(word: str, shard_keys: set[str]) -> str | None:
     return None
 
 
+def build_search_index(occurrences_by_word: dict[str, array]) -> dict[str, list[list]]:
+    index: dict[str, list[list]] = {}
+    for word, occurrences in occurrences_by_word.items():
+        total = sum(occurrences[1::2])
+        index.setdefault(fold_for_shard_key(word)[:SEARCH_PREFIX_LENGTH], []).append([word, total])
+    for entries in index.values():
+        entries.sort(key=lambda entry: (-entry[1], entry[0]))
+    return index
+
+
 def protocol_entry(protocol: Protocol, total_words: int) -> dict:
     return {
         'id': protocol.document_id,
@@ -144,16 +157,20 @@ def protocol_entry(protocol: Protocol, total_words: int) -> dict:
 
 
 def write_output(output_directory: Path, protocols: list[Protocol], total_words: list[int],
-                 shards: dict[str, dict[str, list[int]]]) -> None:
+                 shards: dict[str, dict[str, list[int]]], search_index: dict[str, list[list]]) -> None:
     words_directory = output_directory / 'words'
-    words_directory.mkdir(parents=True, exist_ok=True)
-    for stale_file in words_directory.glob('*.json'):
-        stale_file.unlink()
+    search_directory = output_directory / 'search'
+    for directory in (words_directory, search_directory):
+        directory.mkdir(parents=True, exist_ok=True)
+        for stale_file in directory.glob('*.json'):
+            stale_file.unlink()
     entries = [protocol_entry(protocol, total) for protocol, total in zip(protocols, total_words)]
     (output_directory / 'protocols.json').write_text(json.dumps(entries, ensure_ascii=False, separators=(',', ':')))
     (output_directory / 'shards.json').write_text(json.dumps(sorted(shards)))
     for key, shard in shards.items():
         (words_directory / f'{key}.json').write_bytes(serialize(shard))
+    for prefix, entries in search_index.items():
+        (search_directory / f'{prefix}.json').write_text(json.dumps(entries, ensure_ascii=False, separators=(',', ':')))
 
 
 def verify_round_trip(output_directory: Path, occurrences_by_word: dict[str, array]) -> None:
@@ -181,6 +198,9 @@ def report_sizes(output_directory: Path, occurrences_by_word: dict[str, array], 
           f'({raw_total / pair_count:.1f} bzw. {gzip_total / pair_count:.1f} Byte pro Paar)')
     print(f'Teildateien: {len(shard_sizes)}, größte {max(shard_sizes) / 1e6:.2f} MB, '
           f'Mittel {sum(shard_sizes) / len(shard_sizes) / 1e3:.0f} KB')
+    search_sizes = [size for path, size in raw_sizes.items() if path.parent.name == 'search']
+    print(f'Suchindex: {len(search_sizes)} Dateien, {sum(search_sizes) / 1e6:.1f} MB, '
+          f'größte {max(search_sizes) / 1e6:.2f} MB')
     print(f'protocols.json: {raw_sizes[output_directory / "protocols.json"] / 1e3:.0f} KB roh')
 
 
@@ -198,7 +218,7 @@ def main() -> None:
     series_by_word = {word: encode_series(occurrences) for word, occurrences in occurrences_by_word.items()}
     shards = split_into_shards(series_by_word, INITIAL_SHARD_KEY_LENGTH)
     del series_by_word
-    write_output(arguments.output, protocols, total_words, shards)
+    write_output(arguments.output, protocols, total_words, shards, build_search_index(occurrences_by_word))
     verify_round_trip(arguments.output, occurrences_by_word)
     report_sizes(arguments.output, occurrences_by_word, len(protocols))
 

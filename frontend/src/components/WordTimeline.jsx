@@ -50,6 +50,8 @@ export default function WordTimeline() {
     fetchData();
   }, [word]);
 
+  const protocolsWithWord = timelineData.filter((point) => point.count > 0);
+
   if (loading) {
     return (
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -112,6 +114,7 @@ export default function WordTimeline() {
             </CardContent>
           </Card>
 
+          {wordDetails.speaker_name && (
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
@@ -147,11 +150,10 @@ export default function WordTimeline() {
                     )
                   )}
                 </>
-              ) : (
-                <div className="text-muted-foreground">Unbekannt</div>
-              )}
+              ) : null}
             </CardContent>
           </Card>
+          )}
 
           <Card>
             <CardHeader className="pb-3">
@@ -163,7 +165,7 @@ export default function WordTimeline() {
             <CardContent>
               <div className="text-2xl font-bold">{germanPlurals.vorkommen(wordDetails.total_count)}</div>
               <p className="text-xs text-muted-foreground mt-1">
-                in {germanPlurals.protokoll(timelineData.length)}
+                in {protocolsWithWord.length.toLocaleString('de-DE')} von {timelineData.length.toLocaleString('de-DE')} Protokollen
               </p>
             </CardContent>
           </Card>
@@ -346,7 +348,7 @@ export default function WordTimeline() {
                 </div>
               </div>
               <CardDescription className="mt-2">
-                Mausrad zum Zoomen, ziehen zum Verschieben, Punkte anklicken für Protokolldetails
+                Jedes Protokoll ist ein Punkt, auch ohne Vorkommen. Mausrad zum Zoomen, ziehen zum Verschieben, Punkt anklicken öffnet das PDF des Protokolls.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -379,7 +381,7 @@ export default function WordTimeline() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {timelineData.map((point, index) => (
+                  {protocolsWithWord.map((point, index) => (
                     <TableRow key={index}>
                       <TableCell>{formatGermanDate(point.date)}</TableCell>
                       <TableCell>

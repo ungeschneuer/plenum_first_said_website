@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, Users, Building2, Calendar, TrendingUp, AlertCircle, Loader2 } from 'lucide-react';
 import { searchWords, getStatus } from '../utils/api';
-import { germanPlurals } from '../utils/german';
+import { MINIMUM_QUERY_LENGTH } from '../utils/staticData';
+import { formatGermanDate, germanPlurals } from '../utils/german';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
@@ -32,7 +33,7 @@ export default function SearchPage() {
   }, []);
 
   useEffect(() => {
-    if (query.length < 2) {
+    if (query.trim().length < MINIMUM_QUERY_LENGTH) {
       setResults([]);
       setTotalResults(0);
       return;
@@ -110,12 +111,19 @@ export default function SearchPage() {
 
             {status && (
               <p className="text-sm text-muted-foreground">
-                {germanPlurals.protokoll(status.processed_protocols)} von {germanPlurals.protokoll(status.total_protocols)} verarbeitet
+                {germanPlurals.protokoll(status.total_protocols)} vom {formatGermanDate(status.first_date)} bis zum {formatGermanDate(status.last_date)}
               </p>
             )}
 
             {/* Search Input */}
-            <div className="max-w-2xl mx-auto mt-8">
+            <form
+              className="max-w-2xl mx-auto mt-8"
+              role="search"
+              onSubmit={(event) => {
+                event.preventDefault();
+                if (query.trim()) handleWordClick(query.trim().toLowerCase());
+              }}
+            >
               <div className="relative">
                 <Search className="absolute left-4 top-3.5 h-5 w-5 text-muted-foreground" aria-hidden="true" />
                 <Input
@@ -135,7 +143,7 @@ export default function SearchPage() {
                   />
                 )}
               </div>
-            </div>
+            </form>
           </div>
         </div>
       </div>
@@ -208,7 +216,7 @@ export default function SearchPage() {
         )}
 
         {/* No Results */}
-        {query.length >= 2 && !loading && results.length === 0 && (
+        {query.trim().length >= MINIMUM_QUERY_LENGTH && !loading && results.length === 0 && (
           <Alert role="status">
             <AlertCircle className="h-4 w-4" aria-hidden="true" />
             <AlertDescription>

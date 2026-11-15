@@ -13,7 +13,6 @@ import {
   Legend
 } from 'chart.js';
 import zoomPlugin from 'chartjs-plugin-zoom';
-import { useNavigate } from 'react-router-dom';
 import { Card, CardContent } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
 
@@ -29,8 +28,9 @@ ChartJS.register(
   zoomPlugin
 );
 
+const MAXIMUM_POINTS_WITH_MARKERS = 300;
+
 const Chart = forwardRef(({ timelineData, showPercentage, chartType = 'line', aggregation = 'protocol' }, ref) => {
-  const navigate = useNavigate();
   const chartRef = useRef(null);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
@@ -112,7 +112,8 @@ const Chart = forwardRef(({ timelineData, showPercentage, chartType = 'line', ag
         ...baseConfig,
         tension: 0.3,
         borderWidth: 2,
-        pointRadius: 4,
+        pointRadius: aggregatedData.length > MAXIMUM_POINTS_WITH_MARKERS ? 0 : 4,
+        pointHitRadius: 6,
         pointHoverRadius: 6,
         pointBackgroundColor: 'hsl(var(--primary))',
         pointBorderColor: '#fff',
@@ -141,8 +142,8 @@ const Chart = forwardRef(({ timelineData, showPercentage, chartType = 'line', ag
       if (elements.length > 0) {
         const index = elements[0].index;
         const point = aggregatedData[index];
-        if (point.protocol_id) {
-          navigate(`/protokoll/${point.protocol_id}`);
+        if (point.pdf_url) {
+          window.open(point.pdf_url, '_blank', 'noopener,noreferrer');
         }
       }
     },
@@ -174,7 +175,7 @@ const Chart = forwardRef(({ timelineData, showPercentage, chartType = 'line', ag
             if (aggregation === 'protocol') {
               labels.push(`Protokoll: WP ${point.wahlperiode}/${point.protokollnummer}`);
               labels.push(`Datum: ${point.date}`);
-              labels.push('Klicken zum Öffnen');
+              labels.push('Klicken öffnet das PDF');
             } else {
               labels.push(`Zeitraum: ${point.date}`);
               if (aggregation === 'legislature') {

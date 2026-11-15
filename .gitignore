@@ -79,3 +79,4 @@ backend/backups/
 .playwright-mcp/
 .claude/
 static-data*/
+frontend/public/data
