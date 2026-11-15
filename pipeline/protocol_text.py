@@ -17,9 +17,12 @@ MAXIMUM_ABBREVIATION_LENGTH = 6
 # Printers' imprints are found within the last characters of a protocol.
 IMPRINT_SEARCH_WINDOW = 3000
 
-SESSION_START = re.compile(
-    r'Beginn\s*:\s*\d'
-    r'|^(?:Alters|Vize)?[Pp]räsident(?:in)?(?:[ \t\xa0]+(?:Dr\.|D\.|Prof\.|[A-ZÄÖÜ][\w\-]*)){1,6}:[ \t]*$', re.MULTILINE)
+SESSION_START_MARKER = re.compile(r'Beginn\s*:\s*\d')
+FIRST_LINE_OF_CHAIR = re.compile(
+    r'^(?:Alters|Vize)?[Pp]räsident(?:in)?(?:[ \t\xa0]+(?:Dr\.|D\.|Prof\.|[A-ZÄÖÜ][\w\-]*)){1,6}:(?:[ \t]|$)',
+    re.MULTILINE)
+# The table of contents is short; a first line of the chair found later belongs to a text without one.
+MAXIMUM_SHARE_BEFORE_FIRST_LINE_OF_CHAIR = 0.3
 SESSION_END = re.compile(r'\(Schluss\s*:')
 # The list of excused members is a short appendix; a longer match would mean the heading stood somewhere else.
 MAXIMUM_EXCUSED_LIST_LENGTH = 30000
@@ -43,11 +46,19 @@ REPEATED_LETTER = re.compile(r'([A-Za-z])\1{4,}')
 HAS_LETTER = re.compile(r'[A-Za-zÄÖÜäöüß]')
 
 
+def session_start(text: str) -> int:
+    candidates = []
+    marker = SESSION_START_MARKER.search(text)
+    if marker and len(text) - marker.start() >= MINIMUM_TEXT_AFTER_SESSION_START:
+        candidates.append(marker.start())
+    chair = FIRST_LINE_OF_CHAIR.search(text)
+    if chair and chair.start() <= len(text) * MAXIMUM_SHARE_BEFORE_FIRST_LINE_OF_CHAIR:
+        candidates.append(chair.start())
+    return min(candidates, default=0)
+
+
 def from_session_start(text: str) -> str:
-    match = SESSION_START.search(text)
-    if match and len(text) - match.start() >= MINIMUM_TEXT_AFTER_SESSION_START:
-        return text[match.start():]
-    return text
+    return text[session_start(text):]
 
 
 def without_imprint(text: str) -> str:

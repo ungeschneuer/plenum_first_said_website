@@ -28,6 +28,15 @@ class ProtocolTextTest(unittest.TestCase):
         self.assertIn('erlaubt', words)
         self.assertNotIn('Amtsberg', words)
 
+    def test_old_format_with_speech_after_the_colon_and_no_start_marker(self):
+        text = ('Inhalt: Rentenreform\nVizepräsident Dr. Jaeger \t 10414 A\n'
+                'Präsident D. Dr. Gerstenmaier: Die Sitzung ist eröffnet.\n' + 'Wir beraten die Sozialreform. ' * 40
+                + '\nPräsident D. Dr. Gerstenmaier:\nÄnderungsantrag.')
+        words = extract_words(text)
+        self.assertNotIn('Rentenreform', words)
+        self.assertIn('eröffnet', words)
+        self.assertIn('Sozialreform', words)
+
     def test_running_head_is_removed_and_word_across_it_joined(self):
         text = protocol('Wir sprechen über die Organisa-\n'
                         'Deutscher Bundestag – 16. Wahlperiode – 18. Sitzung. Berlin, Mittwoch, den 15. Februar 2006 1234\n'
