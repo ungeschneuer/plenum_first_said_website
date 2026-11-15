@@ -73,6 +73,11 @@ class ExportTest(unittest.TestCase):
         self.assertNotIn('Gesetzentwurf', lemmas)
         self.assertEqual(new_words[0]['protokoll']['nummer'], '20/50')
 
+    def test_export_stops_when_a_protocol_yields_implausibly_few_words(self):
+        self.write_protocol(1, '01/1', '1949-09-07', '1234 5678 ' * 10000)
+        with self.assertRaises(subprocess.CalledProcessError):
+            run_export('--input', str(self.input), '--output', str(self.directory / 'out'))
+
     def test_rerun_without_new_protocols_changes_nothing(self):
         self.write_protocol(1, '01/1', '1949-09-07', 'Ein Gesetzentwurf liegt vor.')
         first, second = self.directory / 'first', self.directory / 'second'

@@ -17,6 +17,17 @@ class ProtocolTextTest(unittest.TestCase):
         self.assertNotIn('Haushaltsgesetz', words)
         self.assertIn('eröffnet', words)
 
+    def test_current_dip_format_starts_with_the_chair(self):
+        text = ('Inhalt:\nHaushaltsgesetz 2023\nNächste Sitzung\nAnlage\nEntschuldigte Abgeordnete\n'
+                'Präsidentin Bärbel Bas:\nIch eröffne die Sitzung und rufe das Deutschlandticket auf.\n'
+                + 'Wenn der Herr Präsident erlaubt:\nweiter im Text. ' * 40 + '\n(Schluss: 16.01 Uhr)\n'
+                'Anlage\nEntschuldigte Abgeordnete\nAmtsberg, Luise\n')
+        words = extract_words(text)
+        self.assertNotIn('Haushaltsgesetz', words)
+        self.assertIn('Deutschlandticket', words)
+        self.assertIn('erlaubt', words)
+        self.assertNotIn('Amtsberg', words)
+
     def test_running_head_is_removed_and_word_across_it_joined(self):
         text = protocol('Wir sprechen über die Organisa-\n'
                         'Deutscher Bundestag – 16. Wahlperiode – 18. Sitzung. Berlin, Mittwoch, den 15. Februar 2006 1234\n'

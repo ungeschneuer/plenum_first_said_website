@@ -1,6 +1,8 @@
 """Turn the text of a plenary protocol into the word forms that are counted.
 
-The text starts at the opening of the session ("Beginn: 9.00 Uhr"); the table of contents before it is dropped.
+The text starts at the opening of the session; the table of contents before it is dropped. Older texts mark the
+opening with "Beginn: 9.00 Uhr", texts in DIP's current format start with the first line of the chair
+("Präsidentin Bärbel Bas:"); whichever comes first counts.
 Parts that are print layout rather than speech are removed: the running head of every printed page, the list of
 excused members in the appendix and the printer's imprint at the end. Words split at the end of a line are joined,
 also across a removed running head. Numbers, single letters, glued words with capitals inside and fragments of
@@ -15,7 +17,12 @@ MAXIMUM_ABBREVIATION_LENGTH = 6
 # Printers' imprints are found within the last characters of a protocol.
 IMPRINT_SEARCH_WINDOW = 3000
 
-SESSION_START = re.compile(r'Beginn\s*:\s*\d')
+SESSION_START = re.compile(
+    r'Beginn\s*:\s*\d'
+    r'|^(?:Alters|Vize)?[Pp]räsident(?:in)?(?:[ \t\xa0]+(?:Dr\.|D\.|Prof\.|[A-ZÄÖÜ][\w\-]*)){1,6}:[ \t]*$', re.MULTILINE)
+SESSION_END = re.compile(r'\(Schluss\s*:')
+# The list of excused members is a short appendix; a longer match would mean the heading stood somewhere else.
+MAXIMUM_EXCUSED_LIST_LENGTH = 30000
 DASH = r'[-–—]'
 WEEKDAY = r'(?:Montag|Dienstag|Mittwoch|Donnerstag|Freitag|Samstag|Sonnabend|Sonntag)'
 RUNNING_HEAD = re.compile(
@@ -24,7 +31,7 @@ RUNNING_HEAD = re.compile(
     r'[ \t]*\d*\s*\*?[ \t]*\n?')
 EXCUSED_MEMBERS = re.compile(
     r'(?:Liste der (?:entschuldigten|beurlaubten) Abgeordneten|Entschuldigte Abgeordnete|Beurlaubte Abgeordnete)'
-    r'.*?(?=\n\s*Anlage\s*\d*\s*\n|\Z)', re.DOTALL)
+    rf'.{{0,{MAXIMUM_EXCUSED_LIST_LENGTH}}}?(?=\n\s*Anlage\s*\d*\s*\n|\Z)', re.DOTALL)
 IMPRINT_START = re.compile(r'(?:Gesamtherstellung|Druck und Vertrieb|Druck|Vertrieb)\s*:')
 URL = re.compile(r'(?:https?|ftp)://\S+|www\.\S+')
 # Text recognition sometimes puts the hyphen on a line of its own ("Euro\n-\npäer").
@@ -49,10 +56,16 @@ def without_imprint(text: str) -> str:
     return text[:match.start()] if match else text
 
 
+def without_excused_members(text: str) -> str:
+    """The list stands in the appendix after the end of the session; the table of contents mentions it too."""
+    session_ends = list(SESSION_END.finditer(text))
+    appendix_start = session_ends[-1].end() if session_ends else 0
+    return text[:appendix_start] + EXCUSED_MEMBERS.sub('', text[appendix_start:])
+
+
 def without_print_layout(text: str) -> str:
     text = RUNNING_HEAD.sub('', text)
-    text = EXCUSED_MEMBERS.sub('', text)
-    return without_imprint(text)
+    return without_imprint(without_excused_members(text))
 
 
 def join_line_end_hyphenation(text: str) -> str:

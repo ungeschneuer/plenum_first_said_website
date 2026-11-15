@@ -54,6 +54,9 @@ DIP_LOOKBACK_DAYS = 60
 # Protocols from this date on are written in reformed spelling; they decide between ß and ss in lemmas.
 REFORMED_SPELLING_SINCE = '2007-01-01'
 NEW_WORDS_DAYS = 90
+# A protocol yields about 120 counted words per 1000 characters; far fewer means its text was cut wrongly.
+MINIMUM_WORDS_PER_THOUSAND_CHARACTERS = 30
+MINIMUM_CHARACTERS_FOR_PLAUSIBILITY_CHECK = 50000
 
 
 @dataclass
@@ -174,10 +177,18 @@ def reformed_spelling_counts_of_lemmas(corpus: Corpus) -> Counter:
     return counts
 
 
+def has_implausibly_few_words(text: str, word_count: int) -> bool:
+    return (len(text) >= MINIMUM_CHARACTERS_FOR_PLAUSIBILITY_CHECK
+            and word_count * 1000 < len(text) * MINIMUM_WORDS_PER_THOUSAND_CHARACTERS)
+
+
 def count_forms_per_protocol(protocols: list[NewProtocol], form_ids: dict[str, int]) -> list[array]:
     counts_per_protocol = []
+    implausible = []
     for number, protocol in enumerate(protocols):
         forms = extract_words(protocol.text)
+        if has_implausibly_few_words(protocol.text, len(forms)):
+            implausible.append(f"{protocol.entry['nummer']} ({len(forms)} Wörter aus {len(protocol.text)} Zeichen)")
         protocol.entry['woerter'] = len(forms)
         protocol.text = ''
         pairs = array('I')
@@ -186,6 +197,8 @@ def count_forms_per_protocol(protocols: list[NewProtocol], form_ids: dict[str, i
         counts_per_protocol.append(pairs)
         if number % 250 == 0:
             print(f'  {number}/{len(protocols)} Protokolle gezählt', file=sys.stderr)
+    if implausible:
+        raise SystemExit('Zu wenige Wörter, die Zerlegung passt nicht zum Text: ' + ', '.join(implausible))
     return counts_per_protocol
 
 
