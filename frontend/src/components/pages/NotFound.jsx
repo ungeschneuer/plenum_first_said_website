@@ -49,10 +49,6 @@ export default function NotFound() {
             <ul className="space-y-1">
               {[
                 { to: '/', label: 'Wortsuche' },
-                { to: '/wort-des-tages', label: 'Wort des Tages' },
-                { to: '/redner', label: 'Rednerinnen & Redner' },
-                { to: '/parteien', label: 'Parteien' },
-                { to: '/wahlperioden', label: 'Wahlperioden' },
                 { to: '/vergleich', label: 'Wortvergleich' },
               ].map(({ to, label }) => (
                 <li key={to}>

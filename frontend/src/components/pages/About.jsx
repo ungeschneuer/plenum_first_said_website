@@ -411,13 +411,6 @@ export default function About() {
             </div>
             <Separator />
             <div className="flex justify-between items-center">
-              <span className="text-sm">API-Dokumentation für Entwickler</span>
-              <Link to="/docs" className="text-sm text-primary hover:underline">
-                Zur API-Doku →
-              </Link>
-            </div>
-            <Separator />
-            <div className="flex justify-between items-center">
               <span className="text-sm">Impressum & Kontakt</span>
               <Link to="/impressum" className="text-sm text-primary hover:underline">
                 Zum Impressum →

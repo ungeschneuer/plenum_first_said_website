@@ -2,7 +2,7 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useTheme } from '../hooks/useTheme';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, X, Plus, Search, TrendingUp, ZoomOut, Download, BarChart3, LineChart } from 'lucide-react';
-import { getWordsComparison, searchWords } from '../utils/api';
+import { getWordsComparison, searchWords } from '../utils/staticData';
 import { formatGermanDate } from '../utils/german';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';

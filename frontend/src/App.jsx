@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from 'react';
+import { lazy, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
 import { Toaster } from './components/ui/sonner';
 import { Navigation } from './components/layout/Navigation';
@@ -12,28 +12,14 @@ import SearchPage from './components/SearchPage';
 // Lazy load: All other components
 const WordTimeline = lazy(() => import('./components/WordTimeline'));
 const WordComparison = lazy(() => import('./components/WordComparison'));
-const WordOfTheDay = lazy(() => import('./components/WordOfTheDay'));
-const SpeakerList = lazy(() => import('./components/SpeakerList'));
-const SpeakerDetail = lazy(() => import('./components/SpeakerDetail'));
-const PartyList = lazy(() => import('./components/PartyList'));
-const PartyDetail = lazy(() => import('./components/PartyDetail'));
-const ProtocolDetail = lazy(() => import('./components/ProtocolDetail'));
-const WahlperiodeList = lazy(() => import('./components/WahlperiodeList'));
-const WahlperiodeDetail = lazy(() => import('./components/WahlperiodeDetail'));
 
 // Static pages - lazy load
 const NotFound = lazy(() => import('./components/pages/NotFound'));
 const Impressum = lazy(() => import('./components/pages/Impressum'));
 const Datenschutz = lazy(() => import('./components/pages/Datenschutz'));
 const FAQ = lazy(() => import('./components/pages/FAQ'));
-const APIDocs = lazy(() => import('./components/pages/APIDocs'));
 const About = lazy(() => import('./components/pages/About'));
 
-// Admin components - lazy load (rarely used)
-const AdminLogin = lazy(() => import('./components/admin/AdminLogin'));
-const AdminDashboard = lazy(() => import('./components/admin/AdminDashboard'));
-const AdminDatabase = lazy(() => import('./components/admin/AdminDatabase'));
-const AdminLogs = lazy(() => import('./components/admin/AdminLogs'));
 
 // Loading fallback component
 const LoadingFallback = () => (
@@ -51,20 +37,7 @@ const LoadingFallback = () => (
 );
 
 function AppContent() {
-  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(
-    () => !!localStorage.getItem('admin_token')
-  );
   const navigate = useNavigate();
-
-  const handleAdminLogin = (token) => {
-    setIsAdminAuthenticated(true);
-  };
-
-  const handleLogout = () => {
-    localStorage.removeItem('admin_token');
-    setIsAdminAuthenticated(false);
-    navigate('/');
-  };
 
   const handleSearch = (query) => {
     navigate(`/wort/${encodeURIComponent(query)}`);
@@ -84,27 +57,12 @@ function AppContent() {
             <Route path="/" element={<SearchPage />} />
             <Route path="/wort/:word" element={<WordTimeline />} />
             <Route path="/vergleich" element={<WordComparison />} />
-            <Route path="/wort-des-tages" element={<WordOfTheDay />} />
-            <Route path="/redner" element={<SpeakerList />} />
-            <Route path="/redner/:speakerId" element={<SpeakerDetail />} />
-            <Route path="/parteien" element={<PartyList />} />
-            <Route path="/parteien/:partyId" element={<PartyDetail />} />
-            <Route path="/protokoll/:protocolId" element={<ProtocolDetail />} />
-            <Route path="/wahlperioden" element={<WahlperiodeList />} />
-            <Route path="/wahlperiode/:wpNumber" element={<WahlperiodeDetail />} />
 
             {/* Static Pages */}
             <Route path="/impressum" element={<Impressum />} />
             <Route path="/datenschutz" element={<Datenschutz />} />
             <Route path="/faq" element={<FAQ />} />
-            <Route path="/docs" element={<APIDocs />} />
             <Route path="/about" element={<About />} />
-
-            {/* Admin Routes */}
-            <Route path="/admin/login" element={<AdminLogin onLogin={handleAdminLogin} />} />
-            <Route path="/admin/dashboard" element={<AdminDashboard />} />
-            <Route path="/admin/database" element={<AdminDatabase />} />
-            <Route path="/admin/logs" element={<AdminLogs />} />
 
             {/* Catch-all: 404 */}
             <Route path="*" element={<NotFound />} />
@@ -120,7 +78,7 @@ function AppContent() {
 
 function App() {
   return (
-    <Router>
+    <Router basename={import.meta.env.BASE_URL.replace(/\/$/, '')}>
       <AppContent />
     </Router>
   );

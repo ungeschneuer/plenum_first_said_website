@@ -1,12 +1,11 @@
 import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
-import { ArrowLeft, Calendar, User, FileText, ExternalLink, Video, TrendingUp, ZoomOut, BarChart3, LineChart, GitCompare } from 'lucide-react';
-import { getWordTimeline, getWordDetails } from '../utils/api';
+import { ArrowLeft, Calendar, FileText, ExternalLink, Video, TrendingUp, ZoomOut, BarChart3, LineChart, GitCompare } from 'lucide-react';
+import { getWordTimeline, getWordDetails } from '../utils/staticData';
 import Chart from './Chart';
 import { formatGermanDate, formatLegislature, formatLegislatureShort, germanPlurals } from '../utils/german';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Badge } from './ui/badge';
-import { PartyBadge } from '../utils/partyColors.jsx';
 import { Button } from './ui/button';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
@@ -57,8 +56,7 @@ export default function WordTimeline() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <Skeleton className="h-8 w-32 mb-6" />
         <Skeleton className="h-12 w-64 mb-8" />
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-          <Skeleton className="h-24" />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <Skeleton className="h-24" />
           <Skeleton className="h-24" />
         </div>
@@ -98,7 +96,7 @@ export default function WordTimeline() {
       {/* Word Details */}
       {wordDetails && (
         <>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
           <Card>
             <CardHeader className="pb-3">
               <div className="flex items-center gap-2">
@@ -113,47 +111,6 @@ export default function WordTimeline() {
               </p>
             </CardContent>
           </Card>
-
-          {wordDetails.speaker_name && (
-          <Card>
-            <CardHeader className="pb-3">
-              <div className="flex items-center gap-2">
-                <User className="h-4 w-4 text-muted-foreground" aria-hidden="true" />
-                <CardTitle className="text-sm font-medium">Zuerst gesagt von</CardTitle>
-              </div>
-            </CardHeader>
-            <CardContent>
-              {wordDetails.speaker_name ? (
-                <>
-                  {wordDetails.first_speaker_id ? (
-                    <Link
-                      to={`/redner/${wordDetails.first_speaker_id}`}
-                      className="text-2xl font-bold hover:underline"
-                      aria-label={`Alle Wörter von ${wordDetails.speaker_name} anzeigen`}
-                    >
-                      {wordDetails.speaker_name}
-                    </Link>
-                  ) : (
-                    <div className="text-2xl font-bold">{wordDetails.speaker_name}</div>
-                  )}
-                  {wordDetails.party_at_time_name && (
-                    wordDetails.party_at_time_id ? (
-                      <Link
-                        to={`/parteien/${wordDetails.party_at_time_id}`}
-                        className="block w-fit mt-2"
-                        aria-label={`Alle Wörter der ${wordDetails.party_at_time_name} anzeigen`}
-                      >
-                        <PartyBadge party={wordDetails.party_at_time_name} className="cursor-pointer" />
-                      </Link>
-                    ) : (
-                      <PartyBadge party={wordDetails.party_at_time_name} className="mt-2" />
-                    )
-                  )}
-                </>
-              ) : null}
-            </CardContent>
-          </Card>
-          )}
 
           <Card>
             <CardHeader className="pb-3">

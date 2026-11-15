@@ -1,5 +1,24 @@
 # Bundestag Word Intensity Tracker
 
+## Static site
+
+The site no longer needs the backend. `pipeline/export_static_data.py` counts every word per plenary
+protocol and writes static JSON files (protocol list, word series split by word prefix, search index);
+the frontend reads them directly. The workflow `.github/workflows/pages.yml` runs daily: it downloads the
+previous data from the release `daten`, adds new protocols from the DIP API (secret `DIP_API_KEY`), saves
+the result back to the release and publishes the site on GitHub Pages.
+
+```bash
+# full export from a folder of DIP XML files
+python pipeline/export_static_data.py --input xml --output static-data
+# continue an earlier export with new protocols from DIP
+DIP_API_KEY=... python pipeline/export_static_data.py --previous static-data --fetch-dip --output static-data-new
+# local development: link the export into the Vite public folder
+ln -s ../../static-data frontend/public/data && (cd frontend && npm run dev)
+```
+
+The sections below describe the earlier FastAPI backend.
+
 A high-performance web application that tracks word frequencies in German Bundestag debates over time, providing Google Trends-style analysis of how often specific words appear in parliamentary protocols.
 
 **Status**: Production-ready | **Version**: 1.0.0 | **Performance**: 30-1000x optimized

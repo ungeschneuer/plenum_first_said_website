@@ -1,0 +1,100 @@
+name: Daten aktualisieren und veröffentlichen
+
+on:
+  schedule:
+    # Täglich früh am Morgen; DIP stellt Protokolltexte oft erst Tage nach der Sitzung bereit.
+    - cron: '17 4 * * *'
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+env:
+  DATA_RELEASE: daten
+  DATA_ARCHIVE: static-data.tar.gz
+
+jobs:
+  update-and-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Vorigen Datenstand laden
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$DATA_RELEASE" --pattern "$DATA_ARCHIVE" --dir "$RUNNER_TEMP"
+          mkdir previous-data
+          tar -xzf "$RUNNER_TEMP/$DATA_ARCHIVE" -C previous-data
+
+      - name: Neue Protokolle aufnehmen
+        env:
+          DIP_API_KEY: ${{ secrets.DIP_API_KEY }}
+        run: |
+          sources="--previous previous-data"
+          if [ -n "$DIP_API_KEY" ]; then
+            sources="$sources --fetch-dip"
+          else
+            echo "::warning::Secret DIP_API_KEY fehlt, es werden keine neuen Protokolle geholt."
+          fi
+          python pipeline/export_static_data.py $sources --output static-data
+
+      - name: Neuen Datenstand im Release sichern
+        id: save
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if cmp -s previous-data/protocols.json static-data/protocols.json; then
+            echo "Keine neuen Protokolle."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            tar -czf "$RUNNER_TEMP/$DATA_ARCHIVE" -C static-data .
+            gh release upload "$DATA_RELEASE" "$RUNNER_TEMP/$DATA_ARCHIVE" --clobber
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v4
+        if: github.event_name != 'schedule' || steps.save.outputs.changed == 'true'
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Website bauen
+        if: github.event_name != 'schedule' || steps.save.outputs.changed == 'true'
+        working-directory: frontend
+        env:
+          SITE_BASE: /${{ github.event.repository.name }}/
+        run: |
+          npm ci
+          npm run build
+          # GitHub Pages kennt keine Weiterleitung auf index.html; die 404-Seite lädt dieselbe App.
+          cp dist/index.html dist/404.html
+          rm -f dist/stats.html
+          mv ../static-data dist/data
+
+      - uses: actions/upload-pages-artifact@v3
+        if: github.event_name != 'schedule' || steps.save.outputs.changed == 'true'
+        with:
+          path: frontend/dist
+
+      - id: deployment
+        if: github.event_name != 'schedule' || steps.save.outputs.changed == 'true'
+        uses: actions/deploy-pages@v4

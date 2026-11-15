@@ -5,6 +5,7 @@ import { visualizer } from 'rollup-plugin-visualizer'
 import path from 'path'
 
 export default defineConfig({
+  base: process.env.SITE_BASE || '/',
   plugins: [
     react(),
     tailwindcss(),
@@ -22,12 +23,6 @@ export default defineConfig({
   },
   server: {
     port: 5173,
-    proxy: {
-      '/api': {
-        target: 'http://localhost:8000',
-        changeOrigin: true,
-      }
-    }
   },
   build: {
     // Optimize chunks

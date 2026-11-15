@@ -1,8 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Users, Building2, Calendar, TrendingUp, AlertCircle, Loader2 } from 'lucide-react';
-import { searchWords, getStatus } from '../utils/api';
-import { MINIMUM_QUERY_LENGTH } from '../utils/staticData';
+import { Search, TrendingUp, AlertCircle, Loader2 } from 'lucide-react';
+import { searchWords, getStatus, MINIMUM_QUERY_LENGTH } from '../utils/staticData';
 import { formatGermanDate, germanPlurals } from '../utils/german';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Input } from './ui/input';
@@ -68,27 +67,6 @@ export default function SearchPage() {
   const handleWordClick = (word) => {
     navigate(`/wort/${encodeURIComponent(word)}`);
   };
-
-  const quickLinks = [
-    {
-      title: 'Redner',
-      description: 'Durchsuchen Sie Bundestagsabgeordnete',
-      icon: Users,
-      path: '/redner',
-    },
-    {
-      title: 'Parteien',
-      description: 'Erkunden Sie nach Partei',
-      icon: Building2,
-      path: '/parteien',
-    },
-    {
-      title: 'Wahlperioden',
-      description: 'Historische Entwicklung',
-      icon: Calendar,
-      path: '/wahlperioden',
-    },
-  ];
 
   return (
     <div className="min-h-[calc(100vh-4rem)]">
@@ -228,46 +206,6 @@ export default function SearchPage() {
         {/* Help Text / Quick Links */}
         {query.length === 0 && !loading && (
           <div className="space-y-12">
-            {/* Quick Links */}
-            <div>
-              <h2 className="text-2xl font-bold mb-6">Schnellzugriff</h2>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {quickLinks.map((link) => {
-                  const Icon = link.icon;
-                  return (
-                    <Card
-                      key={link.path}
-                      className="cursor-pointer transition-all hover:shadow-md hover:border-primary"
-                      onClick={() => navigate(link.path)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          navigate(link.path);
-                        }
-                      }}
-                      tabIndex={0}
-                      role="button"
-                      aria-label={`${link.title}: ${link.description}`}
-                    >
-                      <CardHeader>
-                        <div className="flex items-center gap-3">
-                          <div className="p-2 bg-accent rounded-lg" aria-hidden="true">
-                            <Icon className="h-5 w-5" />
-                          </div>
-                          <div>
-                            <CardTitle className="text-lg">{link.title}</CardTitle>
-                          </div>
-                        </div>
-                      </CardHeader>
-                      <CardContent>
-                        <CardDescription>{link.description}</CardDescription>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-            </div>
-
             {/* How to Use */}
             <Card>
               <CardHeader>
