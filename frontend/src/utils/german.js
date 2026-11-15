@@ -29,7 +29,7 @@ export function formatGermanDate(dateString) {
  */
 export function pluralize(count, singular, plural) {
   const word = count === 1 ? singular : plural;
-  return `${count} ${word}`;
+  return `${count.toLocaleString('de-DE')} ${word}`;
 }
 
 /**
