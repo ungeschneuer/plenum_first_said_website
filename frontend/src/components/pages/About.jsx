@@ -40,8 +40,10 @@ export default function About() {
       <h2>Wie gezählt wird</h2>
       <p>
         Gezählt wird der Text ab Beginn der Sitzung, einschließlich der Anlagen wie zu Protokoll gegebener Reden.
-        Kopfzeilen der Druckseiten, die Liste der entschuldigten Abgeordneten und das Druckimpressum werden
-        herausgenommen. Der Text wird in Wörter zerlegt; Silbentrennungen am Zeilenende werden zusammengefügt, Zahlen
+        Kopfzeilen der Druckseiten, die Liste der entschuldigten Abgeordneten, das Druckimpressum und die Zeilen, die
+        eine Rede eröffnen („Dr. Schellenberg (SPD):“), werden herausgenommen; sie sind gedruckt, nicht gesprochen.
+        Ein großgeschriebenes Wort direkt nach einem Titel oder einer Anrede zählt als Name: „General Handy“ zählt
+        bei „Handy (Name)“, nicht beim Wort „Handy“. Der Text wird in Wörter zerlegt; Silbentrennungen am Zeilenende werden zusammengefügt, Zahlen
         und einzelne Buchstaben fallen weg.
       </p>
       <p>

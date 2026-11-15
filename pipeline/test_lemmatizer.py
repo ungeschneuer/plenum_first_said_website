@@ -51,6 +51,9 @@ class LemmatizerGoldStandardTest(unittest.TestCase):
         self.assertEqual(lemmatizer.lemma('frage'), 'fragen')
         self.assertEqual(lemmatizer.lemma('tagen'), 'tagen')
 
+    def test_names_stay_as_they_are(self):
+        self.assertEqual(Lemmatizer({}, {}).lemma('Merkels (Name)'), 'Merkels (Name)')
+
     def test_unattested_base_is_not_invented(self):
         lemmatizer = Lemmatizer({'Zeitenwenden': 1}, {})
         self.assertEqual(lemmatizer.lemma('Quarkzeitenwendex'), 'Quarkzeitenwendex')

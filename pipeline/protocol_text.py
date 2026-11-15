@@ -7,10 +7,19 @@ Parts that are print layout rather than speech are removed: the running head of 
 excused members in the appendix and the printer's imprint at the end. Words split at the end of a line are joined,
 also across a removed running head. Numbers, single letters, glued words with capitals inside and fragments of
 enumerations ("Bundes- und Landesrecht") are not counted; abbreviations such as AfD or CSU-Fraktion are.
+
+Lines that open a speech ("Dr. Schellenberg (SPD):") are printed, not spoken, and are not counted. A capitalised
+word right after a title or form of address ("General Handy", "Frau Klein", "Dr. Wolfgang Schäuble") is a name
+and counted as "Handy (Name)", so that it does not count for the word Handy. A second capitalised word belongs to
+the name only after a first name ("Dr. Wolfgang Schäuble"; "Frau Merkel Recht gegeben" keeps Recht).
 """
 
 import re
 from collections.abc import Iterator
+
+from pathlib import Path
+
+from speaker_lines import SPEAKER_LINE
 
 # A session start marker found later than this share of the text is the old format's closing note, not the start.
 MINIMUM_TEXT_AFTER_SESSION_START = 500
@@ -119,14 +128,65 @@ def clean_text(text: str) -> str:
 
 
 def words_of(passage: str) -> list[str]:
-    return [word for word in SEPARATORS.split(passage) if is_countable(word)]
+    return [word for word, _, _ in words_with_positions(passage)]
+
+
+def without_speaker_lines(text: str) -> str:
+    return SPEAKER_LINE.sub('', text)
+
+
+NAME_SUFFIX = ' (Name)'
+TITLES = frozenset({
+    'Herr', 'Herrn', 'Frau', 'Fräulein', 'Dr', 'Prof', 'Professor', 'Professorin', 'Abg',
+    'Kollege', 'Kollegin', 'Kollegen', 'Abgeordneter', 'Abgeordnete', 'Abgeordneten',
+    'Minister', 'Ministerin', 'Bundesminister', 'Bundesministerin', 'Staatsminister', 'Staatsministerin',
+    'Staatssekretär', 'Staatssekretärin', 'Parlamentarischer', 'Parlamentarische', 'Parl', 'Präsident', 'Präsidentin', 'Vizepräsident', 'Vizepräsidentin',
+    'Bundespräsident', 'Bundespräsidentin', 'Bundeskanzler', 'Bundeskanzlerin', 'Kanzler', 'Kanzlerin',
+    'Ministerpräsident', 'Ministerpräsidentin', 'Bürgermeister', 'Bürgermeisterin', 'Senator', 'Senatorin',
+    'General', 'Generalin', 'Oberst', 'Admiral', 'Botschafter', 'Botschafterin', 'Graf', 'Gräfin', 'Freiherr',
+    'Baron', 'Bischof', 'Pfarrer', 'Papst', 'König', 'Königin',
+})
+# Abbreviated titles are followed by a point: "Dr. Schäuble", "Abg. Wehner".
+ABBREVIATED_TITLES = frozenset({'Dr', 'Prof', 'Abg', 'Parl'})
+# After these, Frau and Herr are nouns, not forms of address: "jede Frau Kinder".
+DETERMINERS = frozenset({
+    'der', 'die', 'das', 'dem', 'den', 'des', 'ein', 'eine', 'einer', 'einem', 'einen', 'eines', 'jede', 'jeder',
+    'jedem', 'jeden', 'keine', 'keiner', 'diese', 'dieser', 'diesem', 'jene', 'jener', 'welche', 'welcher', 'manche',
+})
+NOUNS_AS_FORM_OF_ADDRESS = frozenset({'Frau', 'Herr', 'Herrn'})
+FIRST_NAMES = frozenset(line for line in Path(__file__).with_name('first_names.txt').read_text().splitlines()
+                        if line and not line.startswith('#'))
+
+
+def is_capitalised(word: str) -> bool:
+    return word[:1].isupper() and not word.isupper()
+
+
+def directly_follows(passage: str, previous_word: str, previous_end: int, start: int) -> bool:
+    gap = passage[previous_end:start].strip()
+    return gap == '' or (gap == '.' and previous_word in ABBREVIATED_TITLES)
+
+
+def acts_as_title(word: str, word_before: str | None) -> bool:
+    return word in TITLES and not (word in NOUNS_AS_FORM_OF_ADDRESS and word_before in DETERMINERS)
 
 
 def words_with_positions(passage: str) -> Iterator[tuple[str, int, int]]:
+    """Countable words with their position; names after titles carry NAME_SUFFIX."""
+    previous_word, previous_end, previous_is_title, name_parts, word_before = None, 0, False, 0, None
     for match in TOKEN.finditer(passage):
-        if is_countable(match.group(0)):
-            yield match.group(0), match.start(), match.end()
+        word = match.group(0)
+        if not is_countable(word):
+            continue
+        follows = previous_word is not None and directly_follows(passage, previous_word, previous_end, match.start())
+        starts_name = follows and previous_is_title and is_capitalised(word) and word not in TITLES
+        continues_name = (follows and name_parts == 1 and previous_word in FIRST_NAMES and is_capitalised(word)
+                          and word not in TITLES)
+        name_parts = name_parts + 1 if starts_name or continues_name else 0
+        is_title = name_parts == 0 and acts_as_title(word, previous_word if follows else None)
+        yield (word + NAME_SUFFIX if name_parts else word), match.start(), match.end()
+        word_before, previous_word, previous_end, previous_is_title = previous_word, word, match.end(), is_title
 
 
 def extract_words(text: str) -> list[str]:
-    return words_of(clean_text(text))
+    return words_of(without_speaker_lines(clean_text(text)))

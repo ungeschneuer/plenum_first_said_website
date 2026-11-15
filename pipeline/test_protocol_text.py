@@ -75,6 +75,25 @@ class ProtocolTextTest(unittest.TestCase):
         self.assertNotIn('BürgerInnen', words)
         self.assertNotIn('wordsGlued', words)
 
+    def test_names_after_titles_are_counted_as_names(self):
+        words = extract_words(protocol('Wir schrieben an Herrn General Handy. Herr Dr. Wolfgang Schäuble hat '
+                                       'Frau Merkel Recht gegeben, sagte Kollege Wolf. Herr Präsident! Meine Damen, '
+                                       'dass jede Frau Kinder bekommt.'))
+        for name in ('Handy (Name)', 'Wolfgang (Name)', 'Schäuble (Name)', 'Merkel (Name)', 'Wolf (Name)'):
+            self.assertIn(name, words)
+        for word in ('Recht', 'Präsident', 'Meine', 'Kinder'):
+            self.assertIn(word, words)
+        self.assertNotIn('Handy', words)
+
+    def test_speaker_lines_are_not_counted(self):
+        words = extract_words(protocol('Dr. Schellenberg (SPD): Herr Präsident! Die Rentenreform.\n'
+                                       'Vizepräsidentin Petra Pau:\nDas Wort hat der Kollege.'))
+        self.assertNotIn('Schellenberg', words)
+        self.assertNotIn('SPD', words)
+        self.assertNotIn('Pau', words)
+        self.assertEqual(words.count('Präsident'), 1)
+        self.assertIn('Rentenreform', words)
+
     def test_typographic_quotes_and_dashes_separate_words(self):
         words = extract_words(protocol('„Wohnungsmangel“ – so die –Beifall… «Perestroika»'))
         for word in ('Wohnungsmangel', 'Beifall', 'Perestroika'):

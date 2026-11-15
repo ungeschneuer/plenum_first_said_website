@@ -8,6 +8,7 @@ import { Alert, AlertDescription } from './ui/alert';
 import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group';
 
 const VISIBLE_FORM_COUNT = 15;
+const NAME_SUFFIX = ' (Name)';
 const WORDS_PER_RATE = 10000;
 const AGGREGATIONS = [
   ['protocol', 'Sitzung'],
@@ -258,6 +259,16 @@ export default function WordTimeline() {
           </Link>
         </p>
         <h1 className="text-4xl font-bold">{details.word}</h1>
+        {details.word.endsWith(NAME_SUFFIX) && (
+          <p className="text-sm text-muted-foreground">
+            Gezählt wird der Name, wo er direkt nach einem Titel oder einer Anrede steht, etwa „Frau“, „Dr.“ oder
+            „Kollege“. Ohne Titel zählt das Wort bei{' '}
+            <Link to={`/wort/${encodeURIComponent(details.word.slice(0, -NAME_SUFFIX.length))}`} className="underline underline-offset-2">
+              {details.word.slice(0, -NAME_SUFFIX.length)}
+            </Link>
+            .
+          </p>
+        )}
       </header>
       <FirstOccurrence details={details} timeline={timeline} />
       <WordForms forms={details.forms} lemma={details.word} />
