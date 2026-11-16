@@ -24,7 +24,7 @@ export function Navigation() {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
             <div className="text-xl font-bold">
-              Bundestag <span className="text-secondary">Wortschatz</span>
+              Bundestag <span className="text-[hsl(var(--brand-accent))]">Wortschatz</span>
             </div>
           </Link>
 
@@ -84,7 +84,7 @@ export function Navigation() {
               <SheetContent side="right" className="w-[240px] sm:w-[300px]">
                 <div className="flex flex-col gap-4 mt-8">
                   <Link to="/" className="text-lg font-bold mb-4" onClick={() => setIsOpen(false)}>
-                    Bundestag <span className="text-secondary">Wortschatz</span>
+                    Bundestag <span className="text-[hsl(var(--brand-accent))]">Wortschatz</span>
                   </Link>
 
                   {/* Main Links */}

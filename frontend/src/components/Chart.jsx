@@ -15,6 +15,7 @@ import {
 import zoomPlugin from 'chartjs-plugin-zoom';
 import { Card, CardContent } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
+import { chartInk, MAXIMUM_POINTS_WITH_MARKERS, seriesColor, translucent } from '../utils/chartColors';
 
 ChartJS.register(
   CategoryScale,
@@ -28,12 +29,11 @@ ChartJS.register(
   zoomPlugin
 );
 
-const MAXIMUM_POINTS_WITH_MARKERS = 300;
-
 const Chart = forwardRef(({ timelineData, showPercentage, chartType = 'line', aggregation = 'protocol' }, ref) => {
   const chartRef = useRef(null);
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const ink = chartInk(isDark);
 
   useImperativeHandle(ref, () => ({
     resetZoom: () => {
@@ -103,8 +103,8 @@ const Chart = forwardRef(({ timelineData, showPercentage, chartType = 'line', ag
     const baseConfig = {
       label: showPercentage ? 'Prozentsatz (%)' : 'Worthäufigkeit',
       data: values,
-      borderColor: 'hsl(var(--primary))',
-      backgroundColor: 'hsl(var(--primary) / 0.1)',
+      borderColor: seriesColor(0, isDark),
+      backgroundColor: translucent(seriesColor(0, isDark)),
     };
 
     if (chartType === 'line') {
@@ -115,8 +115,8 @@ const Chart = forwardRef(({ timelineData, showPercentage, chartType = 'line', ag
         pointRadius: aggregatedData.length > MAXIMUM_POINTS_WITH_MARKERS ? 0 : 4,
         pointHitRadius: 6,
         pointHoverRadius: 6,
-        pointBackgroundColor: 'hsl(var(--primary))',
-        pointBorderColor: '#fff',
+        pointBackgroundColor: seriesColor(0, isDark),
+        pointBorderColor: isDark ? '#1a1a1a' : '#ffffff',
         pointBorderWidth: 2,
         fill: false,
       };
@@ -149,6 +149,7 @@ const Chart = forwardRef(({ timelineData, showPercentage, chartType = 'line', ag
     },
     plugins: {
       legend: {
+        display: false,
         position: 'top',
         labels: {
           font: {
@@ -157,7 +158,7 @@ const Chart = forwardRef(({ timelineData, showPercentage, chartType = 'line', ag
           },
           padding: 15,
           usePointStyle: true,
-          color: isDark ? '#e0e0e0' : '#1a1a1a',
+          color: ink.text,
         }
       },
       title: {
@@ -186,7 +187,7 @@ const Chart = forwardRef(({ timelineData, showPercentage, chartType = 'line', ag
             return labels;
           }
         },
-        backgroundColor: isDark ? 'rgba(26, 26, 26, 0.95)' : 'rgba(0, 0, 0, 0.8)',
+        backgroundColor: ink.tooltipBackground,
         padding: 12,
         titleFont: {
           size: 13,
@@ -195,9 +196,9 @@ const Chart = forwardRef(({ timelineData, showPercentage, chartType = 'line', ag
         bodyFont: {
           size: 12
         },
-        titleColor: isDark ? '#e0e0e0' : '#ffffff',
-        bodyColor: isDark ? '#e0e0e0' : '#ffffff',
-        borderColor: isDark ? '#333333' : '#e0e0e0',
+        titleColor: '#ffffff',
+        bodyColor: '#ffffff',
+        borderColor: ink.grid,
         borderWidth: 1,
       },
       zoom: {
@@ -229,16 +230,16 @@ const Chart = forwardRef(({ timelineData, showPercentage, chartType = 'line', ag
             size: 12,
             weight: '500'
           },
-          color: isDark ? '#e0e0e0' : '#1a1a1a',
+          color: ink.text,
         },
         grid: {
-          color: isDark ? '#333333' : '#e0e0e0',
+          color: ink.grid,
         },
         ticks: {
           font: {
             size: 11
           },
-          color: isDark ? '#888888' : '#666666',
+          color: ink.muted,
           precision: 0,
           stepSize: 1,
           callback: function(value) {
@@ -257,7 +258,7 @@ const Chart = forwardRef(({ timelineData, showPercentage, chartType = 'line', ag
             size: 12,
             weight: '500'
           },
-          color: isDark ? '#e0e0e0' : '#1a1a1a',
+          color: ink.text,
         },
         grid: {
           display: false,
@@ -266,7 +267,7 @@ const Chart = forwardRef(({ timelineData, showPercentage, chartType = 'line', ag
           font: {
             size: 11
           },
-          color: isDark ? '#888888' : '#666666',
+          color: ink.muted,
           maxRotation: 45,
           minRotation: 45,
         }

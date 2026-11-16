@@ -29,6 +29,7 @@
   :root {
     /* German Federal Theme - Professional (Light Mode) */
     --background: 0 0% 98%;
+    --brand-accent: 38 92% 33%;    /* dark gold, 5:1 on the light background */
     --foreground: 222.2 84% 4.9%;
     --card: 0 0% 100%;
     --card-foreground: 222.2 84% 4.9%;
@@ -53,6 +54,7 @@
   .dark {
     /* Dark Mode Theme */
     --background: 0 0% 3.9%;       /* #0a0a0a */
+    --brand-accent: 45 100% 55%;   /* gold, 11:1 on the dark background */
     --foreground: 0 0% 88%;        /* #e0e0e0 */
     --card: 0 0% 10%;              /* #1a1a1a */
     --card-foreground: 0 0% 88%;

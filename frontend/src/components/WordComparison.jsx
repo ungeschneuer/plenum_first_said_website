@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useTheme } from '../hooks/useTheme';
+import { chartInk, MAXIMUM_POINTS_WITH_MARKERS, MAXIMUM_SERIES, seriesColor, translucent } from '../utils/chartColors';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, X, Plus, Search, TrendingUp, ZoomOut, Download, BarChart3, LineChart } from 'lucide-react';
 import { getWordsComparison, searchWords } from '../utils/staticData';
@@ -38,13 +39,6 @@ ChartJS.register(
 );
 
 // Color palette for different words
-const COLORS = [
-  { border: '#000000', bg: '#00000030' },     // Black (primary)
-  { border: '#D4AF37', bg: '#D4AF3730' },     // Gold (secondary)
-  { border: '#2563eb', bg: '#2563eb30' },     // Blue
-  { border: '#dc2626', bg: '#dc262630' },     // Red
-  { border: '#16a34a', bg: '#16a34a30' },     // Green
-];
 
 export default function WordComparison() {
   const navigate = useNavigate();
@@ -66,6 +60,7 @@ export default function WordComparison() {
   const [aggregation, setAggregation] = useState('protocol'); // protocol, month, year, legislature
   const { theme } = useTheme();
   const isDark = theme === 'dark';
+  const ink = chartInk(isDark);
   const [suggestions, setSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [searchLoading, setSearchLoading] = useState(false);
@@ -154,7 +149,7 @@ export default function WordComparison() {
       return;
     }
 
-    if (words.length >= 5) {
+    if (words.length >= MAXIMUM_SERIES) {
       setErrors({ input: 'Maximal 5 Wörter können verglichen werden' });
       return;
     }
@@ -340,7 +335,7 @@ export default function WordComparison() {
     // Create datasets for each word
     const datasets = words.map((word, index) => {
       const data = aggregatedTimelineData[word] || [];
-      const color = COLORS[index % COLORS.length];
+      const color = { border: seriesColor(index, isDark), bg: translucent(seriesColor(index, isDark)) };
 
       // Create a map of date to value
       const dateMap = {};
@@ -366,10 +361,11 @@ export default function WordComparison() {
           ...baseConfig,
           tension: 0.3,
           borderWidth: 2,
-          pointRadius: 3,
+          pointRadius: sortedDates.length > MAXIMUM_POINTS_WITH_MARKERS ? 0 : 3,
+          pointHitRadius: 6,
           pointHoverRadius: 5,
           pointBackgroundColor: color.border,
-          pointBorderColor: '#fff',
+          pointBorderColor: isDark ? '#1a1a1a' : '#ffffff',
           pointBorderWidth: 1,
           fill: false,
         };
@@ -405,7 +401,7 @@ export default function WordComparison() {
           },
           padding: 15,
           usePointStyle: true,
-          color: isDark ? '#e0e0e0' : '#1a1a1a',
+          color: ink.text,
         }
       },
       title: {
@@ -417,7 +413,7 @@ export default function WordComparison() {
             return formatGermanDate(context[0].label);
           },
         },
-        backgroundColor: isDark ? 'rgba(26, 26, 26, 0.95)' : 'rgba(0, 0, 0, 0.8)',
+        backgroundColor: ink.tooltipBackground,
         padding: 12,
         titleFont: {
           size: 13,
@@ -426,9 +422,9 @@ export default function WordComparison() {
         bodyFont: {
           size: 12
         },
-        titleColor: isDark ? '#e0e0e0' : '#ffffff',
-        bodyColor: isDark ? '#e0e0e0' : '#ffffff',
-        borderColor: isDark ? '#333333' : '#e0e0e0',
+        titleColor: '#ffffff',
+        bodyColor: '#ffffff',
+        borderColor: ink.grid,
         borderWidth: 1,
       },
       zoom: {
@@ -462,16 +458,16 @@ export default function WordComparison() {
             size: 12,
             weight: '500'
           },
-          color: isDark ? '#e0e0e0' : '#1a1a1a',
+          color: ink.text,
         },
         grid: {
-          color: isDark ? '#333333' : '#e0e0e0',
+          color: ink.grid,
         },
         ticks: {
           font: {
             size: 11
           },
-          color: isDark ? '#888888' : '#666666',
+          color: ink.muted,
           precision: 0,
           stepSize: showPercentage ? undefined : 1,
         }
@@ -484,7 +480,7 @@ export default function WordComparison() {
             size: 12,
             weight: '500'
           },
-          color: isDark ? '#e0e0e0' : '#1a1a1a',
+          color: ink.text,
         },
         grid: {
           display: false,
@@ -493,7 +489,7 @@ export default function WordComparison() {
           font: {
             size: 11
           },
-          color: isDark ? '#888888' : '#666666',
+          color: ink.muted,
           maxRotation: 45,
           minRotation: 45,
         }
@@ -554,7 +550,7 @@ export default function WordComparison() {
                 aria-autocomplete="list"
                 aria-controls="word-suggestions"
                 aria-expanded={showSuggestions}
-                disabled={words.length >= 5}
+                disabled={words.length >= MAXIMUM_SERIES}
               />
 
               {/* Autocomplete Suggestions */}
@@ -601,7 +597,7 @@ export default function WordComparison() {
             </div>
             <Button
               onClick={() => addWord()}
-              disabled={!wordInput.trim() || words.length >= 5 || searchLoading}
+              disabled={!wordInput.trim() || words.length >= MAXIMUM_SERIES || searchLoading}
             >
               <Plus className="h-4 w-4 mr-2" aria-hidden="true" />
               Hinzufügen
@@ -620,10 +616,10 @@ export default function WordComparison() {
               {words.map((word, index) => (
                 <Badge
                   key={word}
-                  variant="secondary"
+                  variant="outline"
                   className="text-base px-3 py-1.5"
                   style={{
-                    borderLeft: `4px solid ${COLORS[index % COLORS.length].border}`
+                    borderLeft: `4px solid ${seriesColor(index, isDark)}`
                   }}
                 >
                   {word}
