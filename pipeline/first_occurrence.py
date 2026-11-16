@@ -39,6 +39,16 @@ def sentence_around(passage: str, start: int, end: int) -> str:
     return f'{prefix}{evidence}{suffix}'
 
 
+def is_within_quotation(passage: str, position: int) -> bool:
+    before = passage[:position]
+    return before.count('„') > before.count('“')
+
+
+def quoting(speaker: dict | None) -> dict | None:
+    """A quotation read out is the speaker's word only in reading it; the evidence says so."""
+    return {**speaker, 'zitat': True} if speaker else None
+
+
 def first_occurrences(text: str, wanted_lemmas: set[str],
                       lemma_of_form: Mapping[str, str]) -> dict[str, tuple[dict | None, str]]:
     """Map each wanted lemma found in the text to (speaker, evidence) of its first occurrence."""
@@ -47,7 +57,8 @@ def first_occurrences(text: str, wanted_lemmas: set[str],
         for form, start, end in words_with_positions(passage):
             lemma = lemma_of_form.get(form)
             if lemma in wanted_lemmas and lemma not in found:
-                found[lemma] = (speaker, sentence_around(passage, start, end))
+                quoted = is_within_quotation(passage, start)
+                found[lemma] = (quoting(speaker) if quoted else speaker, sentence_around(passage, start, end))
         if len(found) == len(wanted_lemmas):
             break
     return found

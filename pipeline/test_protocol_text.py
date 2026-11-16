@@ -124,5 +124,38 @@ class ProtocolTextTest(unittest.TestCase):
             self.assertIn(word, words)
 
 
+    def test_two_letter_words_count_only_as_capital_abbreviations(self):
+        words = extract_words(protocol('Es ist an der EU und der UN, zu handeln. Zu spät.'))
+        self.assertIn('EU', words)
+        self.assertIn('UN', words)
+        for word in ('Es', 'zu', 'Zu', 'an'):
+            self.assertNotIn(word, words)
+
+    def test_words_with_digits_are_kept_but_numbers_dropped(self):
+        words = extract_words(protocol('Der Ausstoß von CO2 und Covid-19 im Jahr 2020 nach § 5 und 5G.'))
+        for word in ('CO2', 'Covid-19', '5G'):
+            self.assertIn(word, words)
+        self.assertNotIn('2020', words)
+        self.assertFalse(any('§' in word for word in words))
+
+    def test_multiword_terms_are_counted_besides_their_words(self):
+        words = extract_words(protocol('Die Künstliche Intelligenz und der Europäischen Union. Die künstliche Hand.'))
+        self.assertEqual(words.count('Künstliche Intelligenz'), 1)
+        self.assertEqual(words.count('Europäische Union'), 1)
+        self.assertIn('Intelligenz', words)
+        self.assertIn('Union', words)
+        self.assertFalse(any(word.endswith(' Hand') for word in words))
+
+    def test_excused_list_ends_at_the_first_line_that_is_not_a_member(self):
+        text = protocol('Die Sitzung ist geschlossen.\n(Schluss: 16.01 Uhr)\nAnlage 1\nEntschuldigte Abgeordnete\n'
+                        'Abgeordnete(r)\nAmtsberg, Luise BÜNDNIS 90/DIE GRÜNEN\nMüller, Anna SPD\n'
+                        'Anlage 2\nZu Protokoll gegebene Rede\nDie Rentenversicherung braucht eine Reform.')
+        words = extract_words(text)
+        self.assertNotIn('Amtsberg', words)
+        self.assertNotIn('Müller', words)
+        self.assertIn('Rentenversicherung', words)
+        self.assertIn('Reform', words)
+
+
 if __name__ == '__main__':
     unittest.main()

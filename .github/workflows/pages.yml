@@ -50,6 +50,15 @@ jobs:
           key: structured-protocols-${{ github.run_id }}
           restore-keys: structured-protocols-
 
+      - name: Protokollarchive und PDFs aus früheren Läufen
+        uses: actions/cache@v4
+        with:
+          path: |
+            .cache/archives
+            .cache/pdf
+          key: protocol-texts-${{ github.run_id }}
+          restore-keys: protocol-texts-
+
       - name: Vorigen Datenstand laden
         env:
           GH_TOKEN: ${{ github.token }}

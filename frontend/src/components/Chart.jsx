@@ -5,6 +5,7 @@ import {
   Chart as ChartJS,
   CategoryScale,
   LinearScale,
+  TimeScale,
   PointElement,
   LineElement,
   BarElement,
@@ -13,6 +14,9 @@ import {
   Legend
 } from 'chart.js';
 import zoomPlugin from 'chartjs-plugin-zoom';
+import 'chartjs-adapter-date-fns';
+import { de } from 'date-fns/locale';
+import { aggregateTimeline } from '../utils/timeline';
 import { Card, CardContent } from './ui/card';
 import { Alert, AlertDescription } from './ui/alert';
 import { chartInk, MAXIMUM_POINTS_WITH_MARKERS, seriesColor, translucent } from '../utils/chartColors';
@@ -20,6 +24,7 @@ import { chartInk, MAXIMUM_POINTS_WITH_MARKERS, seriesColor, translucent } from 
 ChartJS.register(
   CategoryScale,
   LinearScale,
+  TimeScale,
   PointElement,
   LineElement,
   BarElement,
@@ -51,52 +56,8 @@ const Chart = forwardRef(({ timelineData, showPercentage, chartType = 'line', ag
     );
   }
 
-  const aggregatedData = useMemo(() => {
-    if (!timelineData || timelineData.length === 0) return [];
-    if (aggregation === 'protocol') return timelineData;
-
-    const aggregated = {};
-
-    timelineData.forEach(point => {
-      const date = new Date(point.date);
-      let key;
-
-      if (aggregation === 'month') {
-        key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      } else if (aggregation === 'year') {
-        key = String(date.getFullYear());
-      } else if (aggregation === 'legislature') {
-        key = `WP ${point.wahlperiode}`;
-      }
-
-      if (!aggregated[key]) {
-        aggregated[key] = {
-          date: key,
-          count: 0,
-          total_words: 0,
-          wahlperiode: point.wahlperiode,
-          protocol_id: point.protocol_id,
-        };
-      }
-
-      aggregated[key].count += point.count;
-      aggregated[key].total_words += point.total_words || 0;
-    });
-
-    return Object.values(aggregated).map(item => ({
-      ...item,
-      percentage: item.total_words > 0 ? (item.count / item.total_words) * 100 : 0,
-    })).sort((a, b) => {
-      if (aggregation === 'legislature') {
-        return parseInt(a.date.replace('WP ', '')) - parseInt(b.date.replace('WP ', ''));
-      }
-      return a.date.localeCompare(b.date);
-    });
-  }, [timelineData, aggregation]);
-  const labels = aggregatedData.map(point => point.date);
-  const values = showPercentage
-    ? aggregatedData.map(point => point.percentage)
-    : aggregatedData.map(point => point.count);
+  const aggregatedData = useMemo(() => aggregateTimeline(timelineData ?? [], aggregation), [timelineData, aggregation]);
+  const values = aggregatedData.map((point) => ({ x: point.x, y: showPercentage ? point.percentage : point.count }));
 
   // Generate dataset based on chart type
   const getDatasetConfig = () => {
@@ -110,7 +71,7 @@ const Chart = forwardRef(({ timelineData, showPercentage, chartType = 'line', ag
     if (chartType === 'line') {
       return {
         ...baseConfig,
-        tension: 0.3,
+        cubicInterpolationMode: 'monotone',
         borderWidth: 2,
         pointRadius: aggregatedData.length > MAXIMUM_POINTS_WITH_MARKERS ? 0 : 4,
         pointHitRadius: 6,
@@ -130,10 +91,7 @@ const Chart = forwardRef(({ timelineData, showPercentage, chartType = 'line', ag
     return baseConfig;
   };
 
-  const data = {
-    labels,
-    datasets: [getDatasetConfig()]
-  };
+  const data = { datasets: [getDatasetConfig()] };
 
   const options = {
     responsive: true,
@@ -169,22 +127,11 @@ const Chart = forwardRef(({ timelineData, showPercentage, chartType = 'line', ag
           label: function(context) {
             const point = aggregatedData[context.dataIndex];
             const value = showPercentage
-              ? `${point.percentage.toFixed(4)}%`
-              : point.count;
-            const labels = [`Wert: ${value}`];
-
-            if (aggregation === 'protocol') {
-              labels.push(`Protokoll: WP ${point.wahlperiode}/${point.protokollnummer}`);
-              labels.push(`Datum: ${point.date}`);
-              labels.push('Klicken öffnet das PDF');
-            } else {
-              labels.push(`Zeitraum: ${point.date}`);
-              if (aggregation === 'legislature') {
-                labels.push(`Wahlperiode ${point.wahlperiode}`);
-              }
-            }
-
-            return labels;
+              ? `${point.percentage.toLocaleString('de-DE', { maximumFractionDigits: 4 })} %`
+              : point.count.toLocaleString('de-DE');
+            const lines = [`${point.label}: ${value}`];
+            if (aggregation === 'protocol') lines.push('Klick öffnet das Protokoll');
+            return lines;
           }
         },
         backgroundColor: ink.tooltipBackground,
@@ -240,8 +187,7 @@ const Chart = forwardRef(({ timelineData, showPercentage, chartType = 'line', ag
             size: 11
           },
           color: ink.muted,
-          precision: 0,
-          stepSize: 1,
+          precision: showPercentage ? undefined : 0,
           callback: function(value) {
             if (showPercentage) {
               return value;
@@ -251,6 +197,9 @@ const Chart = forwardRef(({ timelineData, showPercentage, chartType = 'line', ag
         }
       },
       x: {
+        type: 'time',
+        time: { tooltipFormat: 'dd.MM.yyyy', displayFormats: { year: 'yyyy', month: 'MM.yyyy', day: 'dd.MM.yyyy' } },
+        adapters: { date: { locale: de } },
         title: {
           display: true,
           text: 'Datum',
@@ -268,8 +217,8 @@ const Chart = forwardRef(({ timelineData, showPercentage, chartType = 'line', ag
             size: 11
           },
           color: ink.muted,
-          maxRotation: 45,
-          minRotation: 45,
+          maxRotation: 0,
+          autoSkip: true,
         }
       }
     }

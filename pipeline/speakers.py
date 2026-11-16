@@ -34,6 +34,7 @@ PROTOCOL_LINK = re.compile(r'href="(https://www\.bundestag\.de/resource/blob/\d+
 SPOKEN_PARTS = ('sitzungsverlauf', 'anlagen')
 # Paragraph classes of spoken text and quotations read out; lists of names, vote tables and agenda titles are not.
 SPOKEN_PARAGRAPH_CLASSES = {'J', 'J_1', 'O', 'Z'}
+QUOTATION_CLASS = 'Z'
 INTERJECTION_SEPARATOR = re.compile(r'\s[–—-]\s')
 NAMED_INTERJECTION = re.compile(
     r'^\(?(?:(?:Zuruf|Gegenruf)e? (?:des|der) Abg\. )?(?P<name>[A-ZÄÖÜ][^\[\]:()]{2,80}?)\s*(?:\[[^\]]{2,40}\]\s*)?'
@@ -124,6 +125,8 @@ def spoken_passages(root: ElementTree.Element) -> Iterator[tuple[dict | None, st
                 yield from interjections(''.join(element.itertext()))
             elif element.tag == 'p' and (element.get('klasse') or '').startswith('Anlage'):
                 speaker = None
+            elif element.tag == 'p' and element.get('klasse') == QUOTATION_CLASS:
+                yield ({**speaker, 'zitat': True} if speaker else None), ''.join(element.itertext())
             elif element.tag == 'p' and element.get('klasse') in SPOKEN_PARAGRAPH_CLASSES:
                 yield speaker, ''.join(element.itertext())
 

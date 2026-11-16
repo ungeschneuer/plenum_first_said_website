@@ -32,6 +32,16 @@ const QUESTIONS = [
     ),
   },
   {
+    question: 'Warum zählt „Bank“ auch die Sitzbank?',
+    answer: (
+      <>
+        Die Seite unterscheidet Wörter nach ihrer Schreibung, nicht nach ihrer Bedeutung. Gleich geschriebene Wörter wie
+        „Bank“, „Schloss“ oder „Steuer“ stehen deshalb zusammen. Nur Groß- und Kleinschreibung trennt, etwa „Leben“ und
+        „leben“.
+      </>
+    ),
+  },
+  {
     question: 'Was bedeutet der Anteil?',
     answer: (
       <>
@@ -57,7 +67,7 @@ const QUESTIONS = [
         Die Wortseite nennt die Rednerin oder den Redner des ersten Vorkommens. Ab der 19. Wahlperiode (2017) stammt die
         Angabe aus den strukturierten Protokollen des Bundestages, davor aus den Zeilen, die im Protokoll eine Rede
         eröffnen. Wo beide vorliegen, stimmen sie bei 98 von 100 Wörtern überein. Steht ein Wort zuerst in einem
-        Zwischenruf, steht das dabei; im Beifall oder in schriftlichen Anlagen gibt es keine Rednerin und keinen Redner.
+        Zwischenruf oder einem vorgelesenen Zitat, steht das dabei; im Beifall oder in schriftlichen Anlagen gibt es keine Rednerin und keinen Redner.
       </>
     ),
   },

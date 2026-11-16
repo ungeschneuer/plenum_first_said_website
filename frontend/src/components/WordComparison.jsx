@@ -1,10 +1,12 @@
 import { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useTheme } from '../hooks/useTheme';
+import 'chartjs-adapter-date-fns';
+import { de } from 'date-fns/locale';
+import { aggregateTimeline } from '../utils/timeline';
 import { chartInk, MAXIMUM_POINTS_WITH_MARKERS, MAXIMUM_SERIES, seriesColor, translucent } from '../utils/chartColors';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { ArrowLeft, X, Plus, Search, TrendingUp, ZoomOut, Download, BarChart3, LineChart } from 'lucide-react';
 import { getWordsComparison, searchWords } from '../utils/staticData';
-import { formatGermanDate } from '../utils/german';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
@@ -16,6 +18,7 @@ import { Line, Bar } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
+  TimeScale,
   LinearScale,
   PointElement,
   LineElement,
@@ -28,6 +31,7 @@ import zoomPlugin from 'chartjs-plugin-zoom';
 
 ChartJS.register(
   CategoryScale,
+  TimeScale,
   LinearScale,
   PointElement,
   LineElement,
@@ -258,132 +262,35 @@ export default function WordComparison() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Aggregate timeline data based on selected aggregation level
-  const aggregateData = (data) => {
-    if (aggregation === 'protocol') return data;
-
-    const aggregated = {};
-
-    data.forEach(point => {
-      const date = new Date(point.date);
-      let key;
-
-      if (aggregation === 'month') {
-        key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
-      } else if (aggregation === 'year') {
-        key = String(date.getFullYear());
-      } else if (aggregation === 'legislature') {
-        key = `WP ${point.wahlperiode}`;
-      }
-
-      if (!aggregated[key]) {
-        aggregated[key] = {
-          date: key,
-          count: 0,
-          total_words: 0,
-          wahlperiode: point.wahlperiode,
-        };
-      }
-
-      aggregated[key].count += point.count;
-      aggregated[key].total_words += point.total_words || 0;
-    });
-
-    // Calculate percentage for aggregated data
-    return Object.values(aggregated).map(item => ({
-      ...item,
-      percentage: item.total_words > 0 ? (item.count / item.total_words) * 100 : 0,
-    })).sort((a, b) => {
-      // For legislature aggregation, sort numerically by WP number
-      if (aggregation === 'legislature') {
-        const wpA = parseInt(a.date.replace('WP ', ''));
-        const wpB = parseInt(b.date.replace('WP ', ''));
-        return wpA - wpB;
-      }
-      // For other aggregations, use string comparison
-      return a.date.localeCompare(b.date);
-    });
-  };
-
-  // Prepare chart data
+  // One point per session, month, year or electoral term on a time axis; two sessions on one day stay two points.
   const prepareChartData = () => {
     if (words.length === 0) return null;
-
-    // Aggregate data for all words
-    const aggregatedTimelineData = {};
-    Object.keys(timelineData).forEach(word => {
-      aggregatedTimelineData[word] = aggregateData(timelineData[word]);
-    });
-
-    // Get all unique dates across all words
-    const allDates = new Set();
-    Object.values(aggregatedTimelineData).forEach(data => {
-      data.forEach(point => allDates.add(point.date));
-    });
-
-    const sortedDates = Array.from(allDates).sort((a, b) => {
-      // For legislature aggregation, sort numerically by WP number
-      if (aggregation === 'legislature') {
-        const wpA = parseInt(a.replace('WP ', ''));
-        const wpB = parseInt(b.replace('WP ', ''));
-        return wpA - wpB;
-      }
-      // For other aggregations, use string comparison
-      return a.localeCompare(b);
-    });
-
-    // Create datasets for each word
     const datasets = words.map((word, index) => {
-      const data = aggregatedTimelineData[word] || [];
-      const color = { border: seriesColor(index, isDark), bg: translucent(seriesColor(index, isDark)) };
-
-      // Create a map of date to value
-      const dateMap = {};
-      data.forEach(point => {
-        dateMap[point.date] = showPercentage ? point.percentage : point.count;
-      });
-
-      // Fill in values for all dates (0 for missing dates)
-      // Use !== undefined to properly handle 0 values (don't convert 0 to null)
-      const values = sortedDates.map(date =>
-        dateMap[date] !== undefined ? dateMap[date] : 0
-      );
-
+      const points = aggregateTimeline(timelineData[word] || [], aggregation);
+      const color = seriesColor(index, isDark);
       const baseConfig = {
         label: word,
-        data: values,
-        borderColor: color.border,
-        spanGaps: false, // Don't skip gaps - show 0 values properly
+        data: points.map((point) => ({ x: point.x, y: showPercentage ? point.percentage : point.count, label: point.label })),
+        borderColor: color,
       };
-
-      if (chartType === 'line') {
-        return {
-          ...baseConfig,
-          tension: 0.3,
-          borderWidth: 2,
-          pointRadius: sortedDates.length > MAXIMUM_POINTS_WITH_MARKERS ? 0 : 3,
-          pointHitRadius: 6,
-          pointHoverRadius: 5,
-          pointBackgroundColor: color.border,
-          pointBorderColor: isDark ? '#1a1a1a' : '#ffffff',
-          pointBorderWidth: 1,
-          fill: false,
-        };
-      } else if (chartType === 'bar') {
-        return {
-          ...baseConfig,
-          backgroundColor: color.border,
-          borderWidth: 0,
-          borderRadius: 4,
-        };
+      if (chartType === 'bar') {
+        return { ...baseConfig, backgroundColor: color, borderWidth: 0, borderRadius: 4 };
       }
-      return baseConfig;
+      return {
+        ...baseConfig,
+        backgroundColor: translucent(color),
+        cubicInterpolationMode: 'monotone',
+        borderWidth: 2,
+        pointRadius: points.length > MAXIMUM_POINTS_WITH_MARKERS ? 0 : 3,
+        pointHitRadius: 6,
+        pointHoverRadius: 5,
+        pointBackgroundColor: color,
+        pointBorderColor: isDark ? '#1a1a1a' : '#ffffff',
+        pointBorderWidth: 1,
+        fill: false,
+      };
     });
-
-    return {
-      labels: sortedDates,
-      datasets
-    };
+    return { datasets };
   };
 
   const chartData = prepareChartData();
@@ -410,7 +317,7 @@ export default function WordComparison() {
       tooltip: {
         callbacks: {
           title: function(context) {
-            return formatGermanDate(context[0].label);
+            return context[0].raw.label;
           },
         },
         backgroundColor: ink.tooltipBackground,
@@ -473,6 +380,9 @@ export default function WordComparison() {
         }
       },
       x: {
+        type: 'time',
+        time: { displayFormats: { year: 'yyyy', month: 'MM.yyyy', day: 'dd.MM.yyyy' } },
+        adapters: { date: { locale: de } },
         title: {
           display: true,
           text: 'Datum',
@@ -490,8 +400,8 @@ export default function WordComparison() {
             size: 11
           },
           color: ink.muted,
-          maxRotation: 45,
-          minRotation: 45,
+          maxRotation: 0,
+          autoSkip: true,
         }
       }
     }

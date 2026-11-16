@@ -74,6 +74,7 @@ function timelinePoint(protocol, count) {
     wahlperiode: protocol.wahlperiode,
     protokollnummer: sessionNumber(protocol),
     pdf_url: protocol.pdf,
+    source: protocol.quelle ?? null,
   };
 }
 

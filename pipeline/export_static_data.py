@@ -48,16 +48,19 @@ from pathlib import Path
 
 from first_occurrence import first_occurrences, is_before_structured_protocols, needs_details
 from fragments import FragmentDetector
-from http_retry import fetch_json
+from http_retry import fetch_bytes, fetch_json
 from lemmatizer import Lemmatizer
 from ocr_repair import split_glued_forms
-from protocol_text import extract_words
-from speakers import read_structured_protocols
+from protocol_sources import SESSION_NUMBER, ProtocolArchives, complete_text, has_text
+from protocol_text import extract_words, is_multiword_term
+from speakers import (download_structured_protocol, protocol_key, read_structured_protocols, structured_protocol_urls,
+                      USER_AGENT)
 
 TARGET_SHARD_BYTES = 1_000_000
 INITIAL_SHARD_KEY_LENGTH = 2
 SEARCH_PREFIX_LENGTH = 3
 LETTER_REPLACEMENTS = {'ä': 'ae', 'ö': 'oe', 'ü': 'ue', 'ß': 'ss'}
+DIP_PROTOCOLS_URL = 'https://search.dip.bundestag.de/api/v1/plenarprotokoll'
 DIP_PROTOCOL_TEXT_URL = 'https://search.dip.bundestag.de/api/v1/plenarprotokoll-text'
 # DIP sometimes publishes the text of a session days after its date, so each fetch looks back this far.
 DIP_LOOKBACK_DAYS = 60
@@ -127,12 +130,12 @@ def protocol_from_xml(path: Path) -> NewProtocol | None:
 
 
 def protocol_from_dip_document(document: dict) -> NewProtocol | None:
-    text = document.get('text') or ''
-    if document.get('herausgeber') != 'BT' or not text.strip():
+    """A protocol listed by DIP; its text comes from the sources in pipeline/protocol_sources.py."""
+    if document.get('herausgeber') != 'BT':
         return None
     entry = protocol_entry(document['id'], document.get('wahlperiode'), document.get('dokumentnummer'),
                            document.get('datum'), (document.get('fundstelle') or {}).get('pdf_url'))
-    return NewProtocol(entry, text)
+    return NewProtocol(entry, '')
 
 
 def read_xml_protocols(input_directory: Path) -> list[NewProtocol]:
@@ -144,7 +147,7 @@ def fetch_dip_page(api_key: str, start_date: str, cursor: str | None) -> dict:
     parameters = {'f.zuordnung': 'BT', 'f.datum.start': start_date, 'format': 'json'}
     if cursor:
         parameters['cursor'] = cursor
-    request = urllib.request.Request(f'{DIP_PROTOCOL_TEXT_URL}?{urllib.parse.urlencode(parameters)}',
+    request = urllib.request.Request(f'{DIP_PROTOCOLS_URL}?{urllib.parse.urlencode(parameters)}',
                                      headers={'Authorization': f'ApiKey {api_key}'})
     return fetch_json(request)
 
@@ -187,6 +190,58 @@ def load_previous(directory: Path) -> Corpus:
     if group_totals_file.exists():
         corpus.group_totals = {term: Counter(groups) for term, groups in json.loads(group_totals_file.read_text()).items()}
     return corpus
+
+
+INCOMPLETE_DIP = 'DIP, unvollständig'
+
+
+def complete_texts(protocols: list[NewProtocol], cache_directory: Path, api_key: str | None) -> list[NewProtocol]:
+    """Fill each protocol's text from the most reliable source (pipeline/protocol_sources.py). A recent protocol
+    without a final text yet is left out to be tried again; an older one keeps the DIP text, marked as such."""
+    archives = ProtocolArchives(cache_directory / 'archives')
+    urls: dict[str, str] | None = None
+
+    def structured_protocol(entry: dict) -> Path | None:
+        nonlocal urls
+        urls = structured_protocol_urls() if urls is None else urls
+        number = SESSION_NUMBER.fullmatch(entry['nummer'].strip())
+        if number is None:
+            return None
+        url = urls.get(protocol_key(int(number.group(1)), int(number.group(2))))
+        return download_structured_protocol(url, cache_directory / 'structured-protocols') if url else None
+
+    def dip_text(entry: dict) -> str:
+        if not api_key:
+            return ''
+        request = urllib.request.Request(f"{DIP_PROTOCOL_TEXT_URL}/{entry['id']}?format=json",
+                                         headers={'Authorization': f'ApiKey {api_key}'})
+        return fetch_json(request).get('text') or ''
+
+    def pdf(entry: dict) -> Path | None:
+        if not entry['pdf']:
+            return None
+        path = cache_directory / 'pdf' / entry['pdf'].rsplit('/', 1)[-1]
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(fetch_bytes(urllib.request.Request(entry['pdf'], headers={'User-Agent': USER_AGENT})))
+        return path
+
+    retry_after = (date.today() - timedelta(days=DIP_LOOKBACK_DAYS)).isoformat()
+    kept, sources = [], Counter()
+    for protocol in protocols:
+        result = complete_text(protocol.entry, archives.text, structured_protocol, dip_text, pdf)
+        if result is None and protocol.entry['datum'] >= retry_after:
+            log(f"{protocol.entry['nummer']}: noch kein endgültiger Text, später erneut")
+            continue
+        protocol.text, source = result if result else (dip_text(protocol.entry), INCOMPLETE_DIP)
+        if not has_text(protocol.text):
+            log(f"{protocol.entry['nummer']}: kein Text in Archiv, DIP oder PDF, ausgelassen")
+            continue
+        protocol.entry['quelle'] = source
+        sources[source] += 1
+        kept.append(protocol)
+    log('Quellen: ' + ', '.join(f'{source} {count}' for source, count in sources.most_common()))
+    return kept
 
 
 def unknown_protocols(candidates: list[NewProtocol], entries: list[dict], wahlperioden: set[int]) -> list[NewProtocol]:
@@ -281,7 +336,7 @@ def add_protocols(corpus: Corpus, protocols: list[NewProtocol]) -> None:
             form = forms[pairs[position]]
             if form not in fragments:
                 counts_per_lemma[corpus.lemma_of_form[form]] += pairs[position + 1]
-        protocol.entry['woerter'] = sum(counts_per_lemma.values())
+        protocol.entry['woerter'] = sum(count for lemma, count in counts_per_lemma.items() if not is_multiword_term(lemma))
         for lemma, count in counts_per_lemma.items():
             corpus.occurrences_by_lemma.setdefault(lemma, array('I')).extend((protocol_index, count))
 
@@ -532,6 +587,8 @@ def main() -> None:
         start_date = arguments.fetch_dip_from or dip_start_date(corpus.entries)
         candidates += fetch_dip_protocols(os.environ['DIP_API_KEY'], start_date)
     new_protocols = unknown_protocols(candidates, corpus.entries, set(arguments.wahlperiode))
+    if arguments.fetch_dip:
+        new_protocols = complete_texts(new_protocols, arguments.speaker_cache.parent, os.environ.get('DIP_API_KEY'))
     print(f'{len(new_protocols)} neue Protokolle', file=sys.stderr)
 
     add_protocols(corpus, new_protocols)

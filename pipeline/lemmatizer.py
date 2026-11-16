@@ -1,7 +1,8 @@
 """Lemmatisation of German word forms from plenary protocols.
 
 Each distinct form is lemmatised once, without sentence context, in this order:
-  0. names after titles ("Handy (Name)", see pipeline/protocol_text.py) stay as they are
+  0. names ("Handy (Name)") and multiword terms ("Künstliche Intelligenz"), see pipeline/protocol_text.py, stay as
+     they are
   1. semantic exceptions, where the dictionary lemma would merge words of different meaning (Daten, Medien)
   2. hyphenated words: only the last part is inflected (Corona-Pandemien -> Corona-Pandemie)
   3. abbreviations in capitals stay as they are (SPD, AfD)
@@ -30,7 +31,6 @@ import re
 
 import simplemma
 
-from protocol_text import NAME_SUFFIX
 
 LANGUAGE = 'de'
 MINIMUM_COMPOUND_HEAD_LENGTH = 4
@@ -128,7 +128,7 @@ class Lemmatizer:
         self.reformed_spelling_counts = reformed_spelling_counts
 
     def lemma(self, form: str) -> str:
-        if form.endswith(NAME_SUFFIX):
+        if ' ' in form:
             return form
         if form in SEMANTIC_EXCEPTIONS:
             return SEMANTIC_EXCEPTIONS[form]

@@ -19,9 +19,10 @@ function groupBySession(words) {
 
 function speakerOf(word) {
   if (!word.erste) return null;
-  const { name, fraktion, rolle, zwischenruf } = word.erste;
+  const { name, fraktion, rolle, zwischenruf, zitat } = word.erste;
   const affiliation = [fraktion, rolle].filter(Boolean).join(', ');
-  return `${zwischenruf ? 'Zwischenruf von ' : ''}${name}${affiliation ? ` (${affiliation})` : ''}`;
+  const prefix = zitat ? 'Zitat, vorgelesen von ' : zwischenruf ? 'Zwischenruf von ' : '';
+  return `${prefix}${name}${affiliation ? ` (${affiliation})` : ''}`;
 }
 
 function Session({ session }) {

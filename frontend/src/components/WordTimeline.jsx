@@ -17,9 +17,13 @@ const AGGREGATIONS = [
   ['legislature', 'Wahlperiode'],
 ];
 
-function speakerDescription({ name, fraktion, rolle, zwischenruf }) {
+// Texts taken from the PDF or kept from an incomplete DIP text are marked; the other sources are complete.
+const SOURCE_NOTES = { PDF: 'Text aus dem PDF', 'DIP, unvollständig': 'Text möglicherweise unvollständig' };
+
+function speakerDescription({ name, fraktion, rolle, zwischenruf, zitat }) {
   const affiliation = [fraktion, rolle].filter(Boolean).join(', ');
   const person = affiliation ? `${name} (${affiliation})` : name;
+  if (zitat) return `in einem Zitat, vorgelesen von ${person}`;
   return zwischenruf ? `in einem Zwischenruf von ${person}` : `gesagt von ${person}`;
 }
 
@@ -183,6 +187,9 @@ function SessionList({ timeline }) {
                     <a href={point.pdf_url} target="_blank" rel="noopener noreferrer" className="underline underline-offset-2">
                       {point.wahlperiode}/{point.protokollnummer}
                     </a>
+                    {SOURCE_NOTES[point.source] && (
+                      <span className="ml-2 text-xs text-muted-foreground">({SOURCE_NOTES[point.source]})</span>
+                    )}
                   </td>
                   <td className="py-1 pr-4 text-right tabular-nums">{formatNumber(point.count)}</td>
                   <td className="py-1 text-right tabular-nums">{point.percentage.toFixed(4)} %</td>
