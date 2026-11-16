@@ -31,8 +31,11 @@ key in the environment variable DIP_API_KEY). The output always holds every prot
 import argparse
 import gzip
 import json
+import multiprocessing
+import multiprocessing.pool
 import os
 import sys
+import time
 import urllib.parse
 import urllib.request
 import xml.etree.ElementTree as ElementTree
@@ -64,6 +67,22 @@ NEW_WORDS_DAYS = 90
 # A protocol yields about 120 counted words per 1000 characters; far fewer means its text was cut wrongly.
 MINIMUM_WORDS_PER_THOUSAND_CHARACTERS = 30
 MINIMUM_CHARACTERS_FOR_PLAUSIBILITY_CHECK = 50000
+
+
+# Counting and the search for evidence run in parallel; the workers share read-only data through fork.
+WORKERS = os.cpu_count() or 1
+TASKS_PER_WORKER_CHUNK = 4
+STARTED = time.monotonic()
+lemma_of_form_for_workers: dict[str, str] = {}
+
+
+def log(message: str) -> None:
+    minutes, seconds = divmod(int(time.monotonic() - STARTED), 60)
+    print(f'[{minutes:3d}:{seconds:02d}] {message}', file=sys.stderr)
+
+
+def worker_pool() -> multiprocessing.pool.Pool:
+    return multiprocessing.get_context('fork').Pool(WORKERS)
 
 
 @dataclass
@@ -199,22 +218,29 @@ def has_implausibly_few_words(text: str, word_count: int) -> bool:
             and word_count * 1000 < len(text) * MINIMUM_WORDS_PER_THOUSAND_CHARACTERS)
 
 
+def count_forms_of_text(text: str) -> tuple[Counter, int, bool, bytes]:
+    forms = extract_words(text)
+    return Counter(forms), len(forms), has_implausibly_few_words(text, len(forms)), zlib.compress(text.encode())
+
+
 def count_forms_per_protocol(protocols: list[NewProtocol], form_ids: dict[str, int]) -> list[array]:
     counts_per_protocol = []
     implausible = []
-    for number, protocol in enumerate(protocols):
-        forms = extract_words(protocol.text)
-        if has_implausibly_few_words(protocol.text, len(forms)):
-            implausible.append(f"{protocol.entry['nummer']} ({len(forms)} Wörter aus {len(protocol.text)} Zeichen)")
-        protocol.entry['woerter'] = len(forms)
-        protocol.compressed_text = zlib.compress(protocol.text.encode())
-        protocol.text = ''
-        pairs = array('I')
-        for form, count in Counter(forms).items():
-            pairs.extend((form_ids.setdefault(form, len(form_ids)), count))
-        counts_per_protocol.append(pairs)
-        if number % 250 == 0:
-            print(f'  {number}/{len(protocols)} Protokolle gezählt', file=sys.stderr)
+    texts = (protocol.text for protocol in protocols)
+    with worker_pool() as pool:
+        results = pool.imap(count_forms_of_text, texts, chunksize=TASKS_PER_WORKER_CHUNK)
+        for number, (protocol, (counts, word_count, is_implausible, compressed)) in enumerate(zip(protocols, results)):
+            if is_implausible:
+                implausible.append(f"{protocol.entry['nummer']} ({word_count} Wörter aus {len(protocol.text)} Zeichen)")
+            protocol.entry['woerter'] = word_count
+            protocol.compressed_text = compressed
+            protocol.text = ''
+            pairs = array('I')
+            for form, count in counts.items():
+                pairs.extend((form_ids.setdefault(form, len(form_ids)), count))
+            counts_per_protocol.append(pairs)
+            if number % 500 == 0:
+                log(f'{number}/{len(protocols)} Protokolle gezählt')
     if implausible:
         raise SystemExit('Zu wenige Wörter, die Zerlegung passt nicht zum Text: ' + ', '.join(implausible))
     return counts_per_protocol
@@ -390,16 +416,24 @@ def attach_first_occurrence_details(corpus: Corpus, new_protocols: list[NewProto
             continue
         if needs_details(lemma_total(corpus, lemma), corpus.entries[protocol_index]['wahlperiode']):
             wanted_by_protocol.setdefault(protocol_index, set()).add(lemma)
-    for protocol in new_protocols:
-        protocol_index = index_of_protocol[protocol.entry['id']]
-        wanted = wanted_by_protocol.get(protocol_index)
-        if not wanted:
-            continue
-        text = zlib.decompress(protocol.compressed_text).decode()
-        for lemma, (speaker, evidence) in first_occurrences(text, wanted, corpus.lemma_of_form).items():
-            corpus.evidence_of_lemma[lemma] = evidence
-            if is_before_structured_protocols(protocol.entry['wahlperiode']):
-                corpus.first_speaker_of_lemma.setdefault(lemma, speaker)
+    tasks = [(protocol, wanted_by_protocol[index_of_protocol[protocol.entry['id']]]) for protocol in new_protocols
+             if index_of_protocol[protocol.entry['id']] in wanted_by_protocol]
+    lemma_of_form_for_workers.clear()
+    lemma_of_form_for_workers.update(corpus.lemma_of_form)
+    with worker_pool() as pool:
+        results = pool.imap(first_occurrences_of_task, ((protocol.compressed_text, wanted) for protocol, wanted in tasks),
+                            chunksize=TASKS_PER_WORKER_CHUNK)
+        for (protocol, _), found in zip(tasks, results):
+            for lemma, (speaker, evidence) in found.items():
+                corpus.evidence_of_lemma[lemma] = evidence
+                if is_before_structured_protocols(protocol.entry['wahlperiode']):
+                    corpus.first_speaker_of_lemma.setdefault(lemma, speaker)
+    lemma_of_form_for_workers.clear()
+
+
+def first_occurrences_of_task(task: tuple[bytes, set[str]]) -> dict[str, tuple[dict | None, str]]:
+    compressed_text, wanted = task
+    return first_occurrences(zlib.decompress(compressed_text).decode(), wanted, lemma_of_form_for_workers)
 
 
 def recently_first_said(corpus: Corpus) -> list[dict]:
@@ -501,18 +535,24 @@ def main() -> None:
     print(f'{len(new_protocols)} neue Protokolle', file=sys.stderr)
 
     add_protocols(corpus, new_protocols)
+    log('gezählt und lemmatisiert')
     sort_chronologically(corpus)
     new_ids = {protocol.entry['id'] for protocol in new_protocols}
     new_indices = {index for index, entry in enumerate(corpus.entries) if entry['id'] in new_ids}
     if not arguments.skip_speakers:
         read_structured_protocols(corpus.entries, first_protocol_of_lemma(corpus), new_indices, corpus.lemma_of_form,
                                   corpus.first_speaker_of_lemma, corpus.group_counts, corpus.group_totals,
-                                  arguments.speaker_cache)
+                                  arguments.speaker_cache, WORKERS)
+    log('strukturierte Protokolle gelesen')
     attach_first_occurrence_details(corpus, new_protocols)
+    log('Belege gefunden')
     shards = split_into_shards(word_entries(corpus), INITIAL_SHARD_KEY_LENGTH)
+    log('Teildateien gebildet')
     write_output(arguments.output, corpus.entries, shards, build_search_index(corpus), recently_first_said(corpus),
                  corpus.group_totals)
+    log('geschrieben')
     verify_round_trip(arguments.output, corpus)
+    log('geprüft')
     report_sizes(arguments.output, corpus)
 
 

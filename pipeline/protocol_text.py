@@ -14,7 +14,8 @@ ones as a block of names after "Endgültiges Ergebnis".
 Lines that open a speech ("Dr. Schellenberg (SPD):") are printed, not spoken, and are not counted. A capitalised
 word right after a title or form of address ("General Handy", "Frau Klein", "Dr. Wolfgang Schäuble") is a name
 and counted as "Handy (Name)", so that it does not count for the word Handy. A second capitalised word belongs to
-the name only after a first name ("Dr. Wolfgang Schäuble"; "Frau Merkel Recht gegeben" keeps Recht).
+the name only after a first name ("Dr. Wolfgang Schäuble"; "Frau Merkel Recht gegeben" keeps Recht). Without a
+title, a first name followed by the surname of a member of the Bundestag is a name too ("Oskar Müller, Rudolf Kohl").
 """
 
 import re
@@ -170,8 +171,13 @@ DETERMINERS = frozenset({
     'jedem', 'jeden', 'keine', 'keiner', 'diese', 'dieser', 'diesem', 'jene', 'jener', 'welche', 'welcher', 'manche',
 })
 NOUNS_AS_FORM_OF_ADDRESS = frozenset({'Frau', 'Herr', 'Herrn'})
-FIRST_NAMES = frozenset(line for line in Path(__file__).with_name('first_names.txt').read_text().splitlines()
-                        if line and not line.startswith('#'))
+def read_names(file_name: str) -> frozenset[str]:
+    lines = Path(__file__).with_name(file_name).read_text().splitlines()
+    return frozenset(line for line in lines if line and not line.startswith('#'))
+
+
+FIRST_NAMES = read_names('first_names.txt')
+MEMBER_SURNAMES = read_names('member_surnames.txt')
 
 
 def is_capitalised(word: str) -> bool:
@@ -192,26 +198,47 @@ def glued_after_form_of_address(word: str, previous_word: str | None) -> bool:
     return previous_word in ('Herr', 'Herrn') and word.endswith('in') and word[:-2] in TITLES
 
 
-def words_with_positions(passage: str) -> Iterator[tuple[str, int, int]]:
-    """Countable words with their position; names after titles carry NAME_SUFFIX."""
-    previous_word, previous_end, previous_is_title, name_parts, word_before = None, 0, False, 0, None
+def countable_tokens(passage: str) -> list[tuple[str, int, int]]:
+    tokens, previous_word = [], None
     for match in TOKEN.finditer(passage):
         word = match.group(0)
         if not is_countable(word):
             continue
         if glued_after_form_of_address(word, previous_word):
-            yield word[:-2], match.start(), match.end() - 2
-            yield 'in', match.end() - 2, match.end()
-            previous_word, previous_end, previous_is_title, name_parts = 'in', match.end(), False, 0
-            continue
-        follows = previous_word is not None and directly_follows(passage, previous_word, previous_end, match.start())
+            tokens += [(word[:-2], match.start(), match.end() - 2), ('in', match.end() - 2, match.end())]
+            previous_word = 'in'
+        else:
+            tokens.append((word, match.start(), match.end()))
+            previous_word = word
+    return tokens
+
+
+def name_flags(passage: str, tokens: list[tuple[str, int, int]]) -> list[bool]:
+    """Which tokens are parts of names: after a title, or a member's first name followed by the surname."""
+    flags = [False] * len(tokens)
+    previous_is_title, name_parts = False, 0
+    for index, (word, start, end) in enumerate(tokens):
+        previous_word, _, previous_end = tokens[index - 1] if index else (None, 0, 0)
+        follows = index > 0 and directly_follows(passage, previous_word, previous_end, start)
         starts_name = follows and previous_is_title and is_capitalised(word) and word not in TITLES
         continues_name = (follows and name_parts == 1 and previous_word in FIRST_NAMES and is_capitalised(word)
                           and word not in TITLES)
-        name_parts = name_parts + 1 if starts_name or continues_name else 0
-        is_title = name_parts == 0 and acts_as_title(word, previous_word if follows else None)
-        yield (word + NAME_SUFFIX if name_parts else word), match.start(), match.end()
-        word_before, previous_word, previous_end, previous_is_title = previous_word, word, match.end(), is_title
+        if starts_name or continues_name:
+            flags[index] = True
+        if not flags[index] and word in FIRST_NAMES and index + 1 < len(tokens):
+            next_word, next_start, _ = tokens[index + 1]
+            if next_word in MEMBER_SURNAMES and directly_follows(passage, word, end, next_start):
+                flags[index] = flags[index + 1] = True
+        name_parts = name_parts + 1 if flags[index] else 0
+        previous_is_title = not flags[index] and acts_as_title(word, previous_word if follows else None)
+    return flags
+
+
+def words_with_positions(passage: str) -> Iterator[tuple[str, int, int]]:
+    """Countable words with their position; names carry NAME_SUFFIX."""
+    tokens = countable_tokens(passage)
+    for (word, start, end), is_name in zip(tokens, name_flags(passage, tokens)):
+        yield (word + NAME_SUFFIX if is_name else word), start, end
 
 
 def extract_words(text: str) -> list[str]:

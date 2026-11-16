@@ -11,7 +11,7 @@ import re
 from collections.abc import Iterator
 
 from speaker_lines import SPEAKER_LINE
-from speakers import parliamentary_group
+from speakers import interjections, parliamentary_group
 
 WHITESPACE = re.compile(r'[\s\xa0]+')
 NOT_A_NAME = re.compile(r'\d|Tagesordnung|Drucksache|Anlage|Beratung|Fortsetzung|Fragestunde', re.IGNORECASE)
@@ -21,7 +21,7 @@ NOT_A_PARTY = re.compile(r'Fortsetzung|Drucksache|Tagesordnung|Anlage|Ausschuss|
 
 
 def tidy(text: str) -> str:
-    return WHITESPACE.sub(' ', text).strip().rstrip('!')
+    return WHITESPACE.sub(' ', text).replace(' -', '-').strip().rstrip('!')
 
 
 def without_constituency(name: str) -> str:
@@ -74,4 +74,7 @@ def spoken_passages(text: str) -> Iterator[tuple[dict | None, str]]:
 
 def passages_of_section(speaker: dict | None, section: str) -> Iterator[tuple[dict | None, str]]:
     for in_parentheses, piece in outside_parentheses(section):
-        yield (None if in_parentheses else speaker), piece
+        if in_parentheses:
+            yield from interjections(piece)
+        else:
+            yield speaker, piece

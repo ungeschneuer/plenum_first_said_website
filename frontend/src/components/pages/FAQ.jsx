@@ -54,8 +54,10 @@ const QUESTIONS = [
     question: 'Wer hat ein Wort zuerst gesagt?',
     answer: (
       <>
-        Ab der 19. Wahlperiode (2017) nennt die Wortseite die Rednerin oder den Redner des ersten Vorkommens. Für ältere
-        Protokolle gibt es keine maschinenlesbare Zuordnung der Reden.
+        Die Wortseite nennt die Rednerin oder den Redner des ersten Vorkommens. Ab der 19. Wahlperiode (2017) stammt die
+        Angabe aus den strukturierten Protokollen des Bundestages, davor aus den Zeilen, die im Protokoll eine Rede
+        eröffnen. Wo beide vorliegen, stimmen sie bei 98 von 100 Wörtern überein. Steht ein Wort zuerst in einem
+        Zwischenruf, steht das dabei; im Beifall oder in schriftlichen Anlagen gibt es keine Rednerin und keinen Redner.
       </>
     ),
   },

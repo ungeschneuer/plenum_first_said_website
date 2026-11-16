@@ -53,8 +53,9 @@ export default function Datenschutz() {
 
       <h2>Personen in den Daten</h2>
       <p>
-        Die Seite zählt Wörter aus öffentlichen Plenarsitzungen des Deutschen Bundestages. Ab der 19. Wahlperiode zeigt
-        sie, welche Rednerin oder welcher Redner ein Wort zuerst gesagt hat. Grundlage ist das öffentliche Interesse an
+        Die Seite zählt Wörter aus öffentlichen Plenarsitzungen des Deutschen Bundestages. Sie zeigt, welche
+        Rednerin oder welcher Redner ein Wort zuerst gesagt hat, und ab der 19. Wahlperiode, wie oft die Fraktionen es
+        gebraucht haben. Grundlage ist das öffentliche Interesse an
         der Arbeit gewählter Abgeordneter und der Bundesregierung (Art. 6 Abs. 1 lit. f DSGVO).
       </p>
 

@@ -10,6 +10,7 @@ The same files give the counts per parliamentary group: every word of a speech c
 words of members of the government for "Bundesregierung"; the chair and interjections are not counted.
 """
 
+import multiprocessing
 import re
 import sys
 from collections import Counter
@@ -35,7 +36,8 @@ SPOKEN_PARTS = ('sitzungsverlauf', 'anlagen')
 SPOKEN_PARAGRAPH_CLASSES = {'J', 'J_1', 'O', 'Z'}
 INTERJECTION_SEPARATOR = re.compile(r'\s[–—-]\s')
 NAMED_INTERJECTION = re.compile(
-    r'^\(?(?:(?:Zuruf|Gegenruf)e? (?:des|der) Abg\. )?(?P<name>[A-ZÄÖÜ][^\[\]:()]{2,80}?)\s*\[(?P<party>[^\]]{2,40})\]:\s*(?P<text>.+?)\)?$',
+    r'^\(?(?:(?:Zuruf|Gegenruf)e? (?:des|der) Abg\. )?(?P<name>[A-ZÄÖÜ][^\[\]:()]{2,80}?)\s*(?:\[[^\]]{2,40}\]\s*)?'
+    r'\[(?P<party>[^\]]{1,40})\]:\s*(?P<text>.+?)\)?$',
     re.DOTALL)
 WHITESPACE = re.compile(r'[\s\xa0]+')
 GROUP_NAMES = {'BÜNDNIS 90/DIE GRÜNEN': 'Bündnis 90/Die Grünen', 'DIE LINKE': 'Die Linke', 'DIE LINKE.': 'Die Linke',
@@ -72,12 +74,12 @@ def structured_protocol_urls() -> dict[str, str]:
     return urls
 
 
-def load_structured_protocol(url: str, cache_directory: Path) -> ElementTree.Element:
+def download_structured_protocol(url: str, cache_directory: Path) -> Path:
     cached = cache_directory / url.rsplit('/', 1)[-1]
     if not cached.exists():
         cache_directory.mkdir(parents=True, exist_ok=True)
         cached.write_bytes(fetch(url))
-    return ElementTree.parse(cached).getroot()
+    return cached
 
 
 def tidy(text: str) -> str:
@@ -85,7 +87,7 @@ def tidy(text: str) -> str:
 
 
 def parliamentary_group(party: str) -> str:
-    party = tidy(party)
+    party = tidy(party).replace('/ ', '/')
     return GROUP_NAMES.get(party, party)
 
 
@@ -180,13 +182,26 @@ def first_speakers(root: ElementTree.Element, wanted_lemmas: set[str],
     return {lemma: found.get(lemma) for lemma in wanted_lemmas}
 
 
+# Read by the worker processes, filled before they are forked.
+lemma_of_form_for_workers: dict[str, str] = {}
+
+
+def analyse_structured_protocol(task: tuple[Path, set[str], bool]) -> tuple[dict, Counter, Counter]:
+    path, wanted, count_groups = task
+    root = ElementTree.parse(path).getroot()
+    speakers = first_speakers(root, wanted, lemma_of_form_for_workers) if wanted else {}
+    lemma_counts, word_counts = count_by_group(root, lemma_of_form_for_workers) if count_groups else (Counter(), Counter())
+    return speakers, lemma_counts, word_counts
+
+
 def read_structured_protocols(entries: list[dict], first_protocol_of_lemma: Mapping[str, int],
                               new_protocol_indices: set[int], lemma_of_form: Mapping[str, str],
                               first_speaker_of_lemma: dict[str, dict | None],
                               group_counts: dict[str, dict[str, Counter]], group_totals: dict[str, Counter],
-                              cache_directory: Path) -> None:
+                              cache_directory: Path, workers: int) -> None:
     """Fill the first speakers of lemmas first said from the 19th term on that have none yet, and add the counts per
-    parliamentary group of new protocols from the 19th term on."""
+    parliamentary group of new protocols from the 19th term on. Files are downloaded one by one, then analysed in
+    parallel."""
     wanted_by_protocol: dict[int, set[str]] = {}
     for lemma, protocol_index in first_protocol_of_lemma.items():
         if entries[protocol_index]['wahlperiode'] >= FIRST_TERM_WITH_SPEAKERS and lemma not in first_speaker_of_lemma:
@@ -197,18 +212,25 @@ def read_structured_protocols(entries: list[dict], first_protocol_of_lemma: Mapp
         return
     urls = structured_protocol_urls()
     print(f'{len(to_read)} strukturierte Protokolle lesen, {len(urls)} gelistet', file=sys.stderr)
+    tasks, task_indices = [], []
     for protocol_index in to_read:
-        entry = entries[protocol_index]
-        wahlperiode, session = entry['nummer'].split('/')
+        wahlperiode, session = entries[protocol_index]['nummer'].split('/')
         url = urls.get(protocol_key(int(wahlperiode), int(session)))
         if url is None:
             continue
-        root = load_structured_protocol(url, cache_directory)
-        if protocol_index in wanted_by_protocol:
-            first_speaker_of_lemma.update(first_speakers(root, wanted_by_protocol[protocol_index], lemma_of_form))
-        if protocol_index in to_count:
-            lemma_counts, word_counts = count_by_group(root, lemma_of_form)
-            term = str(entry['wahlperiode'])
+        tasks.append((download_structured_protocol(url, cache_directory), wanted_by_protocol.get(protocol_index, set()),
+                      protocol_index in to_count))
+        task_indices.append(protocol_index)
+
+    lemma_of_form_for_workers.clear()
+    lemma_of_form_for_workers.update(lemma_of_form)
+    with multiprocessing.get_context('fork').Pool(workers) as pool:
+        for protocol_index, (speakers, lemma_counts, word_counts) in zip(task_indices,
+                                                                          pool.imap(analyse_structured_protocol, tasks)):
+            first_speaker_of_lemma.update(speakers)
+            term = str(entries[protocol_index]['wahlperiode'])
             for (lemma, group), count in lemma_counts.items():
                 group_counts.setdefault(lemma, {}).setdefault(term, Counter())[group] += count
-            group_totals.setdefault(term, Counter()).update(word_counts)
+            if word_counts:
+                group_totals.setdefault(term, Counter()).update(word_counts)
+    lemma_of_form_for_workers.clear()

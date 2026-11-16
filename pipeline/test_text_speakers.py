@@ -23,6 +23,16 @@ class TextSpeakersTest(unittest.TestCase):
         self.assertEqual(speakers['Die Konjunktur ist s'], {'name': 'Dr. Erhard', 'rolle': 'Bundesminister für Wirtschaft'})
         self.assertEqual(speakers['Das Deutschlandticke'], {'name': 'Dr. Alice Weidel', 'fraktion': 'AfD'})
 
+    def test_lines_broken_by_text_recognition(self):
+        text = ('Vizepräsident Dr. Schmitt -Vockenhausen: Bitte.\nHöcherl, Bundesminister\n'
+                'für Ernährung, Landwirtschaft und Forsten: Danke.\nWolfgang Bosbach (CDU/\nCSU): Ja.\n'
+                'Text (Dr. Wolfgang Weng [Gerlingen] [F.D.P.]: Unsinn!)')
+        speakers = [speaker for speaker, passage in spoken_passages(text) if passage.strip()]
+        self.assertEqual(speakers[0], {'name': 'Dr. Schmitt-Vockenhausen', 'rolle': 'Vizepräsident'})
+        self.assertEqual(speakers[1], {'name': 'Höcherl', 'rolle': 'Bundesminister für Ernährung, Landwirtschaft und Forsten'})
+        self.assertEqual(speakers[2], {'name': 'Wolfgang Bosbach', 'fraktion': 'CDU/CSU'})
+        self.assertEqual(speakers[-1], {'name': 'Dr. Wolfgang Weng', 'fraktion': 'F.D.P.', 'zwischenruf': True})
+
     def test_evidence_is_the_sentence_around_the_word(self):
         passage = 'Vorher war alles gut. Wir brauchen ein digitales Deutschlandticket bundesweit. Danach nicht.'
         start = passage.index('Deutschlandticket')

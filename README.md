@@ -12,6 +12,8 @@ Vite) liest sie direkt. Ein Workflow schreibt die Daten täglich fort und veröf
 | Teil | Aufgabe |
 |---|---|
 | `pipeline/protocol_text.py` | zerlegt den Protokolltext in Wortformen; entfernt Kopfzeilen, Liste der Entschuldigten und Druckimpressum |
+| `pipeline/text_speakers.py`, `pipeline/speaker_lines.py` | Redner aus den Rednerzeilen des Textes vor der 19. Wahlperiode |
+| `pipeline/update_name_lists.py` | erzeugt aus den Stammdaten der Abgeordneten die Namenslisten zur Namenserkennung |
 | `pipeline/fragments.py` | erkennt Bruchstücke von Wörtern, die an Seitenumbrüchen getrennt wurden |
 | `pipeline/lemmatizer.py` | führt Wortformen auf ihr Lemma zurück (siehe unten) |
 | `pipeline/speakers.py` | sucht in den strukturierten Protokollen des Bundestages, wer ein Lemma zuerst gesagt hat |

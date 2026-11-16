@@ -102,6 +102,13 @@ class ProtocolTextTest(unittest.TestCase):
         self.assertNotIn('Bundeskanzlerin', words)
         self.assertIn('Bundeskanzler', words)
 
+    def test_member_names_without_title(self):
+        words = extract_words(protocol('Ilk, Oskar Müller, Rudolf Kohl. Kohl ist ein Gemüse, der Ernst der Lage.'))
+        for name in ('Oskar (Name)', 'Müller (Name)', 'Rudolf (Name)', 'Kohl (Name)'):
+            self.assertIn(name, words)
+        self.assertIn('Kohl', words)
+        self.assertIn('Ernst', words)
+
     def test_speaker_lines_are_not_counted(self):
         words = extract_words(protocol('Dr. Schellenberg (SPD): Herr Präsident! Die Rentenreform.\n'
                                        'Vizepräsidentin Petra Pau:\nDas Wort hat der Kollege.'))

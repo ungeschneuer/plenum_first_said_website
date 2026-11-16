@@ -43,6 +43,13 @@ jobs:
           pip install -r pipeline/requirements.txt
           python -m unittest discover --start-directory pipeline --top-level-directory pipeline
 
+      - name: Strukturierte Protokolle aus früheren Läufen
+        uses: actions/cache@v4
+        with:
+          path: .cache/structured-protocols
+          key: structured-protocols-${{ github.run_id }}
+          restore-keys: structured-protocols-
+
       - name: Vorigen Datenstand laden
         env:
           GH_TOKEN: ${{ github.token }}
