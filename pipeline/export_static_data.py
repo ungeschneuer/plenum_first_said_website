@@ -13,6 +13,7 @@ Output layout (below --output):
                         for lemmas and forms whose folded spelling starts with the prefix (its first
                         SEARCH_PREFIX_LENGTH characters, or the whole word if shorter)
 
+  stand.json          {"zaehlregeln": fingerprint of the counting rules (pipeline/rules_version.py), "erstellt": date}
   neue-woerter.json   lemmas first said in the protocols of the last NEW_WORDS_DAYS days before the latest one,
                       newest first: [{"lemma", "formen", "protokoll": {...}, "anzahl", "erste"}]; read by the bot
 
@@ -53,6 +54,7 @@ from lemmatizer import Lemmatizer
 from ocr_repair import split_glued_forms
 from protocol_sources import SESSION_NUMBER, ProtocolArchives, complete_text, has_text
 from protocol_text import extract_words, is_multiword_term
+from rules_version import rules_version
 from speakers import (download_structured_protocol, protocol_key, read_structured_protocols, structured_protocol_urls,
                       USER_AGENT)
 
@@ -607,6 +609,8 @@ def main() -> None:
     log('Teildateien gebildet')
     write_output(arguments.output, corpus.entries, shards, build_search_index(corpus), recently_first_said(corpus),
                  corpus.group_totals)
+    (arguments.output / 'stand.json').write_bytes(
+        serialize({'zaehlregeln': rules_version(), 'erstellt': date.today().isoformat()}))
     log('geschrieben')
     verify_round_trip(arguments.output, corpus)
     log('geprüft')

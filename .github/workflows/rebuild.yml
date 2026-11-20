@@ -1,9 +1,15 @@
 name: Daten vollständig neu aufbauen
 
-# Nötig, wenn sich Tokenisierung, Bruchstückfilter oder Lemmatisierung ändern: Wortformen behalten sonst ihr Lemma.
-# Holt alle Protokolle aus DIP, ersetzt den Datenstand im Release und veröffentlicht danach die Seite.
+# Nötig, wenn sich die Zählregeln ändern (pipeline/rules_version.py): Wortformen behalten sonst ihr Lemma. Der
+# tägliche Lauf startet ihn dann selbst. Holt alle Protokolle aus DIP, vergleicht das Ergebnis mit dem bisherigen
+# Datenstand, ersetzt ihn im Release und veröffentlicht danach die Seite.
 on:
   workflow_dispatch:
+    inputs:
+      ohne_pruefung:
+        description: 'Datenstand auch ersetzen, wenn er stark vom bisherigen abweicht (nach gewollten großen Änderungen)'
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -67,15 +73,31 @@ jobs:
             .cache/pdf
           key: protocol-texts-${{ github.run_id }}
 
+      - name: Bisherigen Datenstand laden
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$DATA_RELEASE" --pattern "$DATA_ARCHIVE" --output "$RUNNER_TEMP/previous.tar.gz"
+          mkdir previous-data
+          tar -xzf "$RUNNER_TEMP/previous.tar.gz" -C previous-data
+
+      - name: Neuen Datenstand mit dem bisherigen vergleichen
+        if: ${{ !inputs.ohne_pruefung }}
+        run: python pipeline/compare_data.py previous-data static-data
+
+      # Von den Datenständen im Release bleiben nur der neue und die Sicherung vor diesem Neuaufbau erhalten.
       - name: Bisherigen Datenstand aufheben und neuen speichern
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           backup="static-data-vor-neuaufbau-$(date +%Y-%m-%d).tar.gz"
-          gh release download "$DATA_RELEASE" --pattern "$DATA_ARCHIVE" --output "$RUNNER_TEMP/$backup"
+          mv "$RUNNER_TEMP/previous.tar.gz" "$RUNNER_TEMP/$backup"
           gh release upload "$DATA_RELEASE" "$RUNNER_TEMP/$backup" --clobber
           tar -czf "$RUNNER_TEMP/$DATA_ARCHIVE" -C static-data .
           gh release upload "$DATA_RELEASE" "$RUNNER_TEMP/$DATA_ARCHIVE" --clobber
+          gh release view "$DATA_RELEASE" --json assets --jq '.assets[].name' \
+            | grep '^static-data-' | grep -vxF -e "$backup" -e "$DATA_ARCHIVE" \
+            | while read -r old_backup; do gh release delete-asset "$DATA_RELEASE" "$old_backup" --yes; done
 
       - name: Seite veröffentlichen
         env:

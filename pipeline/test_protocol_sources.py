@@ -1,4 +1,5 @@
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
@@ -70,6 +71,20 @@ class QuotationTest(unittest.TestCase):
         found = first_occurrences(text, {'Zeitenwende', 'stimmen'}, {'Zeitenwende': 'Zeitenwende', 'stimme': 'stimmen'})
         self.assertTrue(found['Zeitenwende'][0]['zitat'])
         self.assertNotIn('zitat', found['stimmen'][0])
+
+    def test_unclosed_quotation_mark_ends_after_a_while(self):
+        text = 'Anna Muster (SPD):\nEr schrieb: „Die Zeitenwende ist da. ' + 'Wir reden weiter. ' * 40 + 'Dem stimme ich zu.'
+        found = first_occurrences(text, {'Zeitenwende', 'stimmen'}, {'Zeitenwende': 'Zeitenwende', 'stimme': 'stimmen'})
+        self.assertTrue(found['Zeitenwende'][0]['zitat'])
+        self.assertNotIn('zitat', found['stimmen'][0])
+
+    def test_many_first_occurrences_in_a_long_passage_are_found_quickly(self):
+        words = [f'Wort{chr(97 + index % 26)}{chr(97 + index // 26 % 26)}{chr(97 + index // 676)}' for index in range(15000)]
+        text = 'Anna Muster (SPD):\n' + ' „Zitat“ '.join(words)
+        started = time.monotonic()
+        found = first_occurrences(text, set(words), {word: word for word in words})
+        self.assertLess(time.monotonic() - started, 5)
+        self.assertEqual(len(found), len(words))
 
 
 if __name__ == '__main__':

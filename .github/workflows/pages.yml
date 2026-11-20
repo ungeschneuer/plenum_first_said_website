@@ -2,14 +2,16 @@ name: Daten aktualisieren und veröffentlichen
 
 on:
   schedule:
-    # Täglich früh am Morgen; DIP stellt Protokolltexte oft erst Tage nach der Sitzung bereit.
-    - cron: '17 4 * * *'
+    # Täglich am späten Abend; DIP stellt Protokolltexte oft erst Tage nach der Sitzung bereit. Zur vollen Stunde
+    # und am Morgen der USA startet GitHub geplante Läufe oft Stunden später.
+    - cron: '43 21 * * *'
   push:
     branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: write
+  actions: write
   pages: write
   id-token: write
 
@@ -50,15 +52,6 @@ jobs:
           key: structured-protocols-${{ github.run_id }}
           restore-keys: structured-protocols-
 
-      - name: Protokollarchive und PDFs aus früheren Läufen
-        uses: actions/cache@v5
-        with:
-          path: |
-            .cache/archives
-            .cache/pdf
-          key: protocol-texts-${{ github.run_id }}
-          restore-keys: protocol-texts-
-
       - name: Vorigen Datenstand laden
         env:
           GH_TOKEN: ${{ github.token }}
@@ -67,7 +60,24 @@ jobs:
           mkdir previous-data
           tar -xzf "$RUNNER_TEMP/$DATA_ARCHIVE" -C previous-data
 
+      # Neue Zählregeln wirken erst nach einem Neuaufbau; bis dahin bleibt der Datenstand unverändert.
+      - name: Zählregeln mit dem Datenstand vergleichen
+        id: rules
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current=$(python pipeline/rules_version.py)
+          previous=$(jq -r '.zaehlregeln // ""' previous-data/stand.json 2>/dev/null || true)
+          if [ "$current" = "$previous" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Der Datenstand wurde mit anderen Zählregeln erstellt (${previous:-unbekannt}, jetzt $current). Der Neuaufbau ist gestartet und veröffentlicht die Seite danach."
+            gh workflow run rebuild.yml --ref "$GITHUB_REF_NAME"
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          fi
+
       - name: Neue Protokolle aufnehmen
+        if: steps.rules.outputs.current == 'true'
         env:
           DIP_API_KEY: ${{ secrets.DIP_API_KEY }}
         run: |
@@ -81,6 +91,7 @@ jobs:
 
       - name: Neuen Datenstand im Release sichern
         id: save
+        if: steps.rules.outputs.current == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
@@ -94,14 +105,14 @@ jobs:
           fi
 
       - uses: actions/setup-node@v5
-        if: github.event_name != 'schedule' || steps.save.outputs.changed == 'true'
+        if: steps.rules.outputs.current == 'true' && (github.event_name != 'schedule' || steps.save.outputs.changed == 'true')
         with:
           node-version: '22'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
 
       - name: Website bauen
-        if: github.event_name != 'schedule' || steps.save.outputs.changed == 'true'
+        if: steps.rules.outputs.current == 'true' && (github.event_name != 'schedule' || steps.save.outputs.changed == 'true')
         working-directory: frontend
         env:
           SITE_BASE: /${{ github.event.repository.name }}/
@@ -115,10 +126,10 @@ jobs:
           mv ../static-data dist/data
 
       - uses: actions/upload-pages-artifact@v5
-        if: github.event_name != 'schedule' || steps.save.outputs.changed == 'true'
+        if: steps.rules.outputs.current == 'true' && (github.event_name != 'schedule' || steps.save.outputs.changed == 'true')
         with:
           path: frontend/dist
 
       - id: deployment
-        if: github.event_name != 'schedule' || steps.save.outputs.changed == 'true'
+        if: steps.rules.outputs.current == 'true' && (github.event_name != 'schedule' || steps.save.outputs.changed == 'true')
         uses: actions/deploy-pages@v5
