@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { getRecentlyFirstSaid } from '../../utils/staticData';
 import { formatLongDate, formatNumber } from '../../utils/german';
 import { BOT_ACCOUNT } from '../../siteConfig';
-import { speakerOf } from '../../utils/speaker';
+import { SpeakerName, speakerPrefix } from '../SpeakerName';
 import { Skeleton } from '../ui/skeleton';
 
 const INITIALLY_SHOWN_SESSIONS = 5;
@@ -37,7 +37,11 @@ function Session({ session }) {
             <Link to={`/wort/${encodeURIComponent(word.lemma)}`} className="font-semibold underline underline-offset-2">
               {word.lemma}
             </Link>
-            {speakerOf(word) && <span className="text-muted-foreground">, {speakerOf(word)}</span>}
+            {word.erste && (
+              <span className="text-muted-foreground">
+                , {speakerPrefix(word.erste)}<SpeakerName speaker={word.erste} />
+              </span>
+            )}
             {word.beleg && <p className="mt-1 text-sm italic leading-relaxed">„{word.beleg}“</p>}
           </li>
         ))}

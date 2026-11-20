@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { getGroupTotals, getWordDetails, getWordTimeline } from '../utils/staticData';
 import Chart from './Chart';
+import { SpeakerName } from './SpeakerName';
 import { formatGermanDate, formatLongDate, formatNumber } from '../utils/german';
 import { Skeleton } from './ui/skeleton';
 import { Alert, AlertDescription } from './ui/alert';
@@ -20,11 +21,9 @@ const AGGREGATIONS = [
 // Texts taken from the PDF or kept from an incomplete DIP text are marked; the other sources are complete.
 const SOURCE_NOTES = { PDF: 'Text aus dem PDF', 'DIP, unvollständig': 'Text möglicherweise unvollständig' };
 
-function speakerDescription({ name, fraktion, rolle, zwischenruf, zitat }) {
-  const affiliation = [fraktion, rolle].filter(Boolean).join(', ');
-  const person = affiliation ? `${name} (${affiliation})` : name;
-  if (zitat) return `in einem Zitat, vorgelesen von ${person}`;
-  return zwischenruf ? `in einem Zwischenruf von ${person}` : `gesagt von ${person}`;
+function SpeakerDescription({ speaker }) {
+  const lead = speaker.zitat ? 'in einem Zitat, vorgelesen von ' : speaker.zwischenruf ? 'in einem Zwischenruf von ' : 'gesagt von ';
+  return <>{lead}<SpeakerName speaker={speaker} /></>;
 }
 
 function FirstOccurrence({ details, timeline }) {
@@ -33,7 +32,7 @@ function FirstOccurrence({ details, timeline }) {
     <section className="space-y-4">
       <p className="text-lg leading-relaxed">
         Zum ersten Mal fiel das Wort am {formatLongDate(details.first_date)} in der {details.protokollnummer}. Sitzung
-        der {details.wahlperiode}. Wahlperiode{details.first_speaker && <>, {speakerDescription(details.first_speaker)}</>}.
+        der {details.wahlperiode}. Wahlperiode{details.first_speaker && <>, <SpeakerDescription speaker={details.first_speaker} /></>}.
         Seitdem kam es {formatNumber(details.total_count)}-mal in {formatNumber(sessions)} von{' '}
         {formatNumber(timeline.length)} Sitzungen vor.
       </p>

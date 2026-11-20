@@ -88,6 +88,8 @@ jobs:
             echo "::warning::Secret DIP_API_KEY fehlt, es werden keine neuen Protokolle geholt."
           fi
           python pipeline/export_static_data.py $sources --output static-data
+          # Die Zählung nach Personen hängt nicht an den Zählregeln und wird bei jedem Lauf neu geschrieben.
+          python pipeline/speaker_statistics.py static-data
 
       - name: Neuen Datenstand im Release sichern
         id: save

@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { ArrowRight } from 'lucide-react';
 import { getOverview, getRecentlyFirstSaid } from '../../utils/staticData';
 import { formatGermanDate, formatLongDate, formatNumber } from '../../utils/german';
-import { speakerOf } from '../../utils/speaker';
+import { SpeakerName, speakerPrefix } from '../SpeakerName';
 import { Skeleton } from '../ui/skeleton';
 import { BarChart } from './BarChart';
 
@@ -110,7 +110,6 @@ function Figures({ overview, newWordCount }) {
 }
 
 function NewWordCard({ word }) {
-  const speaker = speakerOf(word);
   return (
     <li className="flex flex-col rounded-lg border bg-card p-5">
       <Link
@@ -120,7 +119,11 @@ function NewWordCard({ word }) {
         {word.lemma}
       </Link>
       {word.beleg && <p className="mt-2 flex-1 text-sm italic leading-relaxed">„{word.beleg}“</p>}
-      {speaker && <p className="mt-3 text-sm text-muted-foreground">{speaker}</p>}
+      {word.erste && (
+        <p className="mt-3 text-sm text-muted-foreground">
+          {speakerPrefix(word.erste)}<SpeakerName speaker={word.erste} />
+        </p>
+      )}
     </li>
   );
 }
@@ -141,9 +144,14 @@ function LatestNewWords({ sessions, error }) {
             am {formatLongDate(latest.protocol.datum)} zum ersten Mal seit 1949 vor. Eine Auswahl:
           </p>
         </div>
-        <Link to="/neu" className="inline-flex shrink-0 items-center gap-1 text-sm font-medium underline-offset-2 hover:underline">
-          Alle neuen Wörter <ArrowRight className="h-4 w-4" aria-hidden="true" />
-        </Link>
+        <div className="flex shrink-0 flex-col gap-1 sm:items-end">
+          <Link to="/neu" className="inline-flex items-center gap-1 text-sm font-medium underline-offset-2 hover:underline">
+            Alle neuen Wörter <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+          <Link to="/personen" className="inline-flex items-center gap-1 text-sm font-medium underline-offset-2 hover:underline">
+            Rangliste nach Personen <ArrowRight className="h-4 w-4" aria-hidden="true" />
+          </Link>
+        </div>
       </div>
       <ul className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
         {shownWords(latest.words).map((word) => <NewWordCard key={word.lemma} word={word} />)}
