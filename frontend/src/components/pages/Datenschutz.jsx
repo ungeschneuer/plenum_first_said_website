@@ -55,7 +55,8 @@ export default function Datenschutz() {
       <p>
         Die Seite zählt Wörter aus öffentlichen Plenarsitzungen des Deutschen Bundestages. Sie zeigt, welche
         Rednerin oder welcher Redner ein Wort zuerst gesagt hat, und ab der 19. Wahlperiode, wie oft die Fraktionen es
-        gebraucht haben. Grundlage ist das öffentliche Interesse an
+        gebraucht haben. Für jede Person, die im Plenum gesprochen hat, zählt sie, wie viele Wörter sie zuerst gesagt
+        hat, und listet diese Wörter auf. Grundlage ist das öffentliche Interesse an
         der Arbeit gewählter Abgeordneter und der Bundesregierung (Art. 6 Abs. 1 lit. f DSGVO).
       </p>
 

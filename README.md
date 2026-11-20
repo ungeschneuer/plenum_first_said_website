@@ -18,6 +18,7 @@ Vite) liest sie direkt. Ein Workflow schreibt die Daten täglich fort und veröf
 | `pipeline/lemmatizer.py` | führt Wortformen auf ihr Lemma zurück (siehe unten) |
 | `pipeline/speakers.py` | sucht in den strukturierten Protokollen des Bundestages, wer ein Lemma zuerst gesagt hat |
 | `pipeline/export_static_data.py` | holt Protokolle, zählt pro Protokoll und Lemma, schreibt die Dateien; das Datenformat steht im Docstring |
+| `pipeline/speaker_statistics.py` | zählt aus einem fertigen Export je Person die Wörter, die sie zuerst gesagt hat; läuft nach jedem Export und gehört nicht zu den Zählregeln |
 | `frontend/` | die Seite; `src/utils/staticData.js` liest die Dateien |
 | `.github/workflows/pages.yml` | täglich: Datenstand aus dem Release `daten` laden, neue Protokolle aus DIP aufnehmen, sichern, veröffentlichen; startet den Neuaufbau, wenn sich die Zählregeln geändert haben |
 | `.github/workflows/rebuild.yml` | alle Protokolle neu aus DIP zählen, mit dem bisherigen Datenstand vergleichen (`pipeline/compare_data.py`) und ihn ersetzen; nötig, wenn sich der Fingerabdruck der Zählregeln (`pipeline/rules_version.py`) ändert |
@@ -47,6 +48,8 @@ Alle Dateien sind JSON in UTF-8.
 | `fraktionen.json` | je Wahlperiode die gezählten Wörter jeder Fraktion in Reden, die Bezugsgröße für Anteile |
 | `stand.json` | `zaehlregeln` (Fingerabdruck der Zählregeln, mit denen der Datenstand erstellt wurde) und `erstellt` (Datum) |
 | `neue-woerter.json` | Lemmata, die in den Protokollen der letzten 90 Tage zum ersten Mal vorkommen, mit Protokoll, Formen, erster Person und Beleg |
+| `personen.json` | je Person (`id`, `name`) die Anzahl der Wörter, die sie zuerst gesagt hat (`anzahl`, ohne vorgelesene Zitate), davon `zwischenrufe` und `sitzungsleitung`, die häufigste `zuordnung` (Fraktion, sonst Rolle) und je Wahlperiode `[Anzahl, davon Sitzungsleitung, Zuordnung]`; dazu `fraktionen`: je Wahlperiode die Anzahl je Fraktion |
+| `personen/<id>.json` | je Person `zuordnungen` (Fraktion oder Rolle: Anzahl) und `woerter`: `[Lemma, Protokollindex, 1 bei Zwischenruf]` |
 
 Beispiel: `"reihe": [3, 1, 4, 2]` heißt einmal in Protokoll 3 und zweimal in Protokoll 7. Die Texte stammen vom
 Deutschen Bundestag (Datenlizenz Deutschland – Namensnennung – Version 2.0); bitte nennen Sie bei einer Nachnutzung

@@ -217,6 +217,30 @@ export async function getOverview() {
   };
 }
 
+export async function getPersons() {
+  return loadJson('personen.json');
+}
+
+// A person with the words they said first, newest first, each with the protocol it was said in.
+export async function getPerson(id) {
+  const [protocols, person] = await Promise.all([loadProtocols(), loadJson(`personen/${id}.json`)]);
+  const words = person.woerter
+    .map(([lemma, protocolIndex, interjection]) => {
+      const protocol = protocols[protocolIndex];
+      return {
+        lemma,
+        protocolIndex,
+        interjection: interjection === 1,
+        date: protocol.datum,
+        wahlperiode: protocol.wahlperiode,
+        protokollnummer: sessionNumber(protocol),
+        pdf_url: protocol.pdf,
+      };
+    })
+    .sort((a, b) => b.protocolIndex - a.protocolIndex || a.lemma.localeCompare(b.lemma, 'de'));
+  return { id: person.id, name: person.name, attributions: person.zuordnungen, words };
+}
+
 export async function getStatus() {
   const protocols = await loadProtocols();
   return {
