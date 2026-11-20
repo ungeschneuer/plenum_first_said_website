@@ -30,9 +30,9 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v6
         with:
           python-version: '3.12'
           cache: pip
@@ -44,14 +44,14 @@ jobs:
           python -m unittest discover --start-directory pipeline --top-level-directory pipeline
 
       - name: Strukturierte Protokolle aus früheren Läufen
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: .cache/structured-protocols
           key: structured-protocols-${{ github.run_id }}
           restore-keys: structured-protocols-
 
       - name: Protokollarchive und PDFs aus früheren Läufen
-        uses: actions/cache@v4
+        uses: actions/cache@v5
         with:
           path: |
             .cache/archives
@@ -93,7 +93,7 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         if: github.event_name != 'schedule' || steps.save.outputs.changed == 'true'
         with:
           node-version: '22'
@@ -114,11 +114,11 @@ jobs:
           rm -f dist/stats.html
           mv ../static-data dist/data
 
-      - uses: actions/upload-pages-artifact@v3
+      - uses: actions/upload-pages-artifact@v4
         if: github.event_name != 'schedule' || steps.save.outputs.changed == 'true'
         with:
           path: frontend/dist
 
       - id: deployment
         if: github.event_name != 'schedule' || steps.save.outputs.changed == 'true'
-        uses: actions/deploy-pages@v4
+        uses: actions/deploy-pages@v5

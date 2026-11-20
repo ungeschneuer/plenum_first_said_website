@@ -1,3 +1,4 @@
+import time
 import unittest
 
 from protocol_text import extract_words
@@ -155,6 +156,16 @@ class ProtocolTextTest(unittest.TestCase):
         self.assertNotIn('Müller', words)
         self.assertIn('Rentenversicherung', words)
         self.assertIn('Reform', words)
+
+    def test_long_line_after_a_list_heading_ends_the_list_at_once(self):
+        # Before, every way of splitting such a line into words was tried; this line alone took hours.
+        long_line = 'Meier, Schulz, ' * 40 + 'BÜNDNIS 90/DIE GRÜNEN ' * 10 + 'teilt mit'
+        text = protocol(f'Die Sitzung ist geschlossen.\n(Schluss: 16.01 Uhr)\nAnlage 1\nEntschuldigte Abgeordnete\n'
+                        f'{long_line}\nEndgültiges Ergebnis\n{"CDU/CSU 12 " * 40}enthalten sich\n{"-" * 80}x\n')
+        started = time.monotonic()
+        words = extract_words(text)
+        self.assertLess(time.monotonic() - started, 1)
+        self.assertIn('teilt', words)
 
 
 if __name__ == '__main__':
