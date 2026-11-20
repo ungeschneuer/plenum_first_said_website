@@ -24,6 +24,9 @@ export function Footer() {
           </ul>
         </nav>
         <p>
+          Ein privates Projekt, kein offizielles Angebot des Deutschen Bundestages.
+        </p>
+        <p>
           Texte: Plenarprotokolle des Deutschen Bundestages, {DATA_SOURCE.licenseName}. Der{' '}
           <a href={SOURCE_REPOSITORY} className="underline underline-offset-2 hover:text-foreground">
             Quellcode

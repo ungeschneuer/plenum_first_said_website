@@ -79,4 +79,13 @@ describe('staticData', () => {
   it('reports unknown words', async () => {
     await expect(staticData.getWordDetails('Gibtsnicht')).rejects.toThrow('kommt in keinem Protokoll vor');
   });
+  it('sums sessions and words per electoral term without shared protocols', async () => {
+    const overview = await staticData.getOverview();
+    expect(overview.sessions).toBe(2);
+    expect(overview.words).toBe(300);
+    expect(overview.terms).toEqual([
+      { wahlperiode: 1, sessions: 1, words: 100, first_date: '1949-09-07', last_date: '1949-09-07' },
+      { wahlperiode: 20, sessions: 1, words: 200, first_date: '2022-09-07', last_date: '2022-09-07' },
+    ]);
+  });
 });

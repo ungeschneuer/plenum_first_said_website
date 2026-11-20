@@ -49,6 +49,7 @@
     --input: 214.3 31.8% 91.4%;
     --ring: 0 0% 0%;
     --radius: 0.5rem;
+    --chart-bar: #2a78d6;
   }
 
   .dark {
@@ -74,6 +75,7 @@
     --input: 0 0% 20%;
     --ring: 45 100% 51%;
     --radius: 0.5rem;
+    --chart-bar: #3987e5;
   }
 }
 

@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 import { Search, AlertCircle, Loader2 } from 'lucide-react';
-import { searchWords, getStatus, MINIMUM_QUERY_LENGTH } from '../utils/staticData';
-import { formatGermanDate, germanPlurals } from '../utils/german';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { searchWords, MINIMUM_QUERY_LENGTH } from '../utils/staticData';
+import { germanPlurals } from '../utils/german';
+import { HomeOverview } from './home/HomeOverview';
+import { Card, CardContent } from './ui/card';
 import { Input } from './ui/input';
 import { Badge } from './ui/badge';
 import { Alert, AlertDescription } from './ui/alert';
 import { Skeleton } from './ui/skeleton';
-import { Button } from './ui/button';
 
 export default function SearchPage() {
   const [query, setQuery] = useState('');
@@ -16,20 +16,7 @@ export default function SearchPage() {
   const [totalResults, setTotalResults] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [status, setStatus] = useState(null);
   const navigate = useNavigate();
-
-  useEffect(() => {
-    async function fetchStatus() {
-      try {
-        const statusData = await getStatus();
-        setStatus(statusData);
-      } catch (err) {
-        console.error('Error fetching status:', err);
-      }
-    }
-    fetchStatus();
-  }, []);
 
   useEffect(() => {
     if (query.trim().length < MINIMUM_QUERY_LENGTH) {
@@ -69,10 +56,10 @@ export default function SearchPage() {
   };
 
   return (
-    <div className="min-h-[calc(100vh-4rem)]">
+    <div>
       {/* Hero Section */}
       <div className="border-b border-border">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 sm:py-24">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20">
           <div className="text-center space-y-6">
             <h1 className="text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tight">
               Wie oft sagt der Bundestag …?
@@ -82,11 +69,9 @@ export default function SearchPage() {
               Jedes Wort aus den Plenarsitzungen seit 1949, Sitzung für Sitzung gezählt, mit seinem ersten Vorkommen.
             </p>
 
-            {status && (
-              <p className="text-sm text-muted-foreground">
-                {germanPlurals.protokoll(status.total_protocols)} vom {formatGermanDate(status.first_date)} bis zum {formatGermanDate(status.last_date)}
-              </p>
-            )}
+            <p className="text-sm text-muted-foreground">
+              Ein privates Projekt, kein offizielles Angebot des Deutschen Bundestages.
+            </p>
 
             {/* Search Input */}
             <form
@@ -203,17 +188,7 @@ export default function SearchPage() {
           </Alert>
         )}
 
-        {/* Help Text / Quick Links */}
-        {query.length === 0 && !loading && (
-          <div className="space-y-12">
-            <p className="text-muted-foreground">
-              Geben Sie ein Wort ein, zum Beispiel <Link to="/wort/Klimawandel" className="underline underline-offset-2">Klimawandel</Link>,{' '}
-              <Link to="/wort/Zeitenwende" className="underline underline-offset-2">Zeitenwende</Link> oder{' '}
-              <Link to="/wort/Wiedervereinigung" className="underline underline-offset-2">Wiedervereinigung</Link>. Gebeugte
-              Formen führen zur Grundform. Wie gezählt wird, steht unter <Link to="/about" className="underline underline-offset-2">Über das Projekt</Link>.
-            </p>
-          </div>
-        )}
+        {query.trim().length < MINIMUM_QUERY_LENGTH && !loading && <HomeOverview />}
       </div>
     </div>
   );
