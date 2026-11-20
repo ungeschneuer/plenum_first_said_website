@@ -19,8 +19,8 @@ Vite) liest sie direkt. Ein Workflow schreibt die Daten täglich fort und veröf
 | `pipeline/speakers.py` | sucht in den strukturierten Protokollen des Bundestages, wer ein Lemma zuerst gesagt hat |
 | `pipeline/export_static_data.py` | holt Protokolle, zählt pro Protokoll und Lemma, schreibt die Dateien; das Datenformat steht im Docstring |
 | `frontend/` | die Seite; `src/utils/staticData.js` liest die Dateien |
-| `.github/workflows/pages.yml` | täglich: Datenstand aus dem Release `daten` laden, neue Protokolle aus DIP aufnehmen, sichern, veröffentlichen |
-| `.github/workflows/rebuild.yml` | von Hand: alle Protokolle neu aus DIP zählen, nötig nach Änderungen an Zerlegung oder Lemmatisierung |
+| `.github/workflows/pages.yml` | täglich: Datenstand aus dem Release `daten` laden, neue Protokolle aus DIP aufnehmen, sichern, veröffentlichen; startet den Neuaufbau, wenn sich die Zählregeln geändert haben |
+| `.github/workflows/rebuild.yml` | alle Protokolle neu aus DIP zählen, mit dem bisherigen Datenstand vergleichen (`pipeline/compare_data.py`) und ihn ersetzen; nötig, wenn sich der Fingerabdruck der Zählregeln (`pipeline/rules_version.py`) ändert |
 
 ## Lemmatisierung
 
@@ -45,6 +45,7 @@ Alle Dateien sind JSON in UTF-8.
 | `words/<Schlüssel>.json` | je Lemma: `reihe` (Paare aus Abstand zum vorigen Protokollindex und Anzahl, das erste Paar mit dem absoluten Index), `formen` (Wortform: Anzahl), `erste` (Name und Fraktion oder Rolle der ersten Person, `zwischenruf` bei Zwischenrufen, `null` wenn unbekannt), `beleg` (Satz des ersten Vorkommens), `fraktionen` (je Wahlperiode ab der 19. die Anzahl je Fraktion in Reden) |
 | `search/<Präfix>.json` | Suchindex: `[Lemma, Anzahl]` und `[Wortform, Anzahl des Lemmas, Lemma]`, nach Anzahl sortiert |
 | `fraktionen.json` | je Wahlperiode die gezählten Wörter jeder Fraktion in Reden, die Bezugsgröße für Anteile |
+| `stand.json` | `zaehlregeln` (Fingerabdruck der Zählregeln, mit denen der Datenstand erstellt wurde) und `erstellt` (Datum) |
 | `neue-woerter.json` | Lemmata, die in den Protokollen der letzten 90 Tage zum ersten Mal vorkommen, mit Protokoll, Formen, erster Person und Beleg |
 
 Beispiel: `"reihe": [3, 1, 4, 2]` heißt einmal in Protokoll 3 und zweimal in Protokoll 7. Die Texte stammen vom
