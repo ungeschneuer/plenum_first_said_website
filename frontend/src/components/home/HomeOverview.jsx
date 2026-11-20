@@ -45,10 +45,14 @@ function groupBySession(words) {
     || sessionLabel(a.protocol).number - sessionLabel(b.protocol).number);
 }
 
+// The selection on the home page leaves out words first said by members of the AfD group.
+const EXCLUDED_GROUPS = new Set(['AfD']);
+
 function shownWords(words) {
-  const readable = words.filter((word) => word.beleg && word.beleg.length <= MAXIMUM_EVIDENCE_LENGTH
+  const candidates = words.filter((word) => !EXCLUDED_GROUPS.has(word.erste?.fraktion));
+  const readable = candidates.filter((word) => word.beleg && word.beleg.length <= MAXIMUM_EVIDENCE_LENGTH
     && word.lemma.length <= MAXIMUM_LEMMA_LENGTH);
-  return (readable.length >= SHOWN_NEW_WORDS ? readable : words).slice(0, SHOWN_NEW_WORDS);
+  return (readable.length >= SHOWN_NEW_WORDS ? readable : candidates).slice(0, SHOWN_NEW_WORDS);
 }
 
 function SectionHeading({ title, children }) {

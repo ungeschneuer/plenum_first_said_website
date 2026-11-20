@@ -69,6 +69,10 @@ export default function SearchPage() {
               Jedes Wort aus den Plenarsitzungen seit 1949, Sitzung für Sitzung gezählt, mit seinem ersten Vorkommen.
             </p>
 
+            <p className="text-sm text-muted-foreground">
+              Ein privates Projekt, kein offizielles Angebot des Deutschen Bundestages.
+            </p>
+
             {/* Search Input */}
             <form
               className="max-w-2xl mx-auto mt-8"
