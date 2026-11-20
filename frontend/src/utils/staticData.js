@@ -133,7 +133,10 @@ export async function getWordTimeline(word) {
   const countByProtocolIndex = new Map(
     decodeSeries(series).map(({ protocolIndex, count }) => [protocolIndex, count])
   );
-  return protocols.map((protocol, index) => timelinePoint(protocol, countByProtocolIndex.get(index) ?? 0));
+  // A session printed in the protocol of another session of the same day has no counts of its own.
+  return protocols.flatMap((protocol, index) =>
+    protocol.gemeinsam_mit ? [] : [timelinePoint(protocol, countByProtocolIndex.get(index) ?? 0)]
+  );
 }
 
 export async function getWordDetails(word) {

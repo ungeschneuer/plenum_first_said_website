@@ -4,6 +4,7 @@ const FILES = {
   'protocols.json': [
     { id: '1', wahlperiode: 1, nummer: '01/1', datum: '1949-09-07', pdf: 'a.pdf', woerter: 100 },
     { id: '2', wahlperiode: 20, nummer: '20/50', datum: '2022-09-07', pdf: 'b.pdf', woerter: 200 },
+    { id: '3', wahlperiode: 20, nummer: '20/51', datum: '2022-09-07', pdf: 'c.pdf', woerter: 0, gemeinsam_mit: '20/50' },
   ],
   'shards.json': ['kl', 'le'],
   'words/kl.json': {
@@ -65,6 +66,7 @@ describe('staticData', () => {
   it('gives a timeline point for every protocol, including those without the word', async () => {
     const timeline = await staticData.getWordTimeline('Klimawandel');
     expect(timeline.map((point) => point.count)).toEqual([0, 40]);
+    expect(timeline.map((point) => point.protokollnummer)).not.toContain('51');
     expect(timeline[1].percentage).toBeCloseTo(20);
   });
 
