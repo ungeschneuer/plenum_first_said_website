@@ -89,6 +89,19 @@ class ExportTest(unittest.TestCase):
         for path in first.rglob('*.json'):
             self.assertEqual(path.read_bytes(), (second / path.relative_to(first)).read_bytes(), path.name)
 
+    def test_two_sessions_printed_as_one_protocol_are_counted_once(self):
+        text = 'Der Gesetzentwurf zur Rentenreform liegt dem Hause vor. ' * 20
+        self.write_protocol(1, '04/66', '1963-03-15', text)
+        self.write_protocol(2, '04/67', '1963-03-15', text)
+        self.write_protocol(3, '04/68', '1963-03-16', text)
+        output = self.directory / 'out'
+        run_export('--input', str(self.input), '--output', str(output))
+        protocols = json.loads((output / 'protocols.json').read_text())
+        self.assertEqual(protocols[1]['gemeinsam_mit'], '04/66')
+        self.assertEqual(protocols[1]['woerter'], 0)
+        self.assertNotIn('gemeinsam_mit', protocols[2])
+        self.assertEqual(decode_series(read_words(output)['Gesetzentwurf']['reihe']), [(0, 20), (2, 20)])
+
     def test_search_index_leads_from_forms_to_lemmas(self):
         self.write_protocol(1, '01/1', '1949-09-07', 'Die Gesetzentwürfe.')
         output = self.directory / 'out'

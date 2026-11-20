@@ -1,7 +1,9 @@
 """Write the lemma series of all plenary protocols as static JSON files.
 
 Output layout (below --output):
-  protocols.json      ordered list of protocols; a protocol's position is its index in every series
+  protocols.json      ordered list of protocols; a protocol's position is its index in every series; a protocol
+                      that repeats the text of another session of the same day names it in "gemeinsam_mit" and
+                      is not counted
   shards.json         list of shard keys; a lemma lives in the longest key that prefixes its folded form
   words/<key>.json    {lemma: {"reihe": [index gap, count, ...], "formen": {form: count, ...}, "erste": {...}}}
                       reihe: the lemma's count per protocol it occurs in, formen: the word forms it brings together,
@@ -72,6 +74,10 @@ NEW_WORDS_DAYS = 90
 # A protocol yields about 120 counted words per 1000 characters; far fewer means its text was cut wrongly.
 MINIMUM_WORDS_PER_THOUSAND_CHARACTERS = 30
 MINIMUM_CHARACTERS_FOR_PLAUSIBILITY_CHECK = 50000
+# Two sessions of one day were sometimes printed as one protocol, which the archive holds under both numbers.
+# Protocols of one day whose word counts agree to this share are counted once; such pairs agree to 98 percent or
+# more, other sessions of one day to 68 percent at most.
+MINIMUM_SHARE_OF_SHARED_PROTOCOL = 0.9
 
 
 # Counting and the search for evidence run in parallel; the workers share read-only data through fork.
@@ -303,9 +309,38 @@ def count_forms_per_protocol(protocols: list[NewProtocol], form_ids: dict[str, i
     return counts_per_protocol
 
 
+def shared_share(first: array, second: array) -> float:
+    """The share of words two protocols have in common, counted by word form."""
+    first_counts = dict(zip(first[0::2], first[1::2]))
+    second_counts = dict(zip(second[0::2], second[1::2]))
+    common = sum(min(count, second_counts.get(form, 0)) for form, count in first_counts.items())
+    return common / max(sum(first_counts.values()), sum(second_counts.values()), 1)
+
+
+def count_shared_protocols_once(protocols: list[NewProtocol], counts_per_protocol: list[array]) -> None:
+    """Leave the counts of a protocol that repeats the text of an earlier session of the same day empty and name
+    that session in "gemeinsam_mit"."""
+    by_date: dict[str, list[int]] = {}
+    for position, protocol in enumerate(protocols):
+        by_date.setdefault(protocol.entry['datum'], []).append(position)
+    for positions in by_date.values():
+        positions.sort(key=lambda position: session_number(protocols[position].entry))
+        for later_index, later in enumerate(positions):
+            for earlier in positions[:later_index]:
+                if 'gemeinsam_mit' in protocols[earlier].entry:
+                    continue
+                if shared_share(counts_per_protocol[earlier], counts_per_protocol[later]) >= MINIMUM_SHARE_OF_SHARED_PROTOCOL:
+                    protocols[later].entry['gemeinsam_mit'] = protocols[earlier].entry['nummer']
+                    counts_per_protocol[later] = array('I')
+                    log(f"{protocols[later].entry['nummer']}: gleicher Text wie {protocols[earlier].entry['nummer']}, "
+                        'nur einmal gezählt')
+                    break
+
+
 def add_protocols(corpus: Corpus, protocols: list[NewProtocol]) -> None:
     form_ids: dict[str, int] = {}
     counts_per_protocol = count_forms_per_protocol(protocols, form_ids)
+    count_shared_protocols_once(protocols, counts_per_protocol)
     split_occurrences = split_glued_forms([protocol.entry for protocol in protocols], counts_per_protocol, form_ids)
     print(f'{split_occurrences} verklebte Wörter in alten Protokollen getrennt', file=sys.stderr)
     forms = list(form_ids)

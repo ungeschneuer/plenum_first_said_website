@@ -40,7 +40,7 @@ Alle Dateien sind JSON in UTF-8.
 
 | Datei | Inhalt |
 |---|---|
-| `protocols.json` | alle Protokolle nach Datum: `id` (DIP), `wahlperiode`, `nummer` (z. B. `21/108`), `datum`, `pdf`, `woerter` (gezählte Wörter); die Position in der Liste ist der Protokollindex |
+| `protocols.json` | alle Protokolle nach Datum: `id` (DIP), `wahlperiode`, `nummer` (z. B. `21/108`), `datum`, `pdf`, `woerter` (gezählte Wörter), `gemeinsam_mit` (bei einer Sitzung, die im Protokoll einer anderen Sitzung desselben Tages steht: deren Nummer; die Sitzung wird dann nicht gezählt); die Position in der Liste ist der Protokollindex |
 | `shards.json` | Schlüssel der Teildateien; ein Lemma steht in der Teildatei mit dem längsten Schlüssel, der seine gefaltete Schreibung beginnt (klein, ä zu ae, ß zu ss, alles außer a bis z zu `_`) |
 | `words/<Schlüssel>.json` | je Lemma: `reihe` (Paare aus Abstand zum vorigen Protokollindex und Anzahl, das erste Paar mit dem absoluten Index), `formen` (Wortform: Anzahl), `erste` (Name und Fraktion oder Rolle der ersten Person, `zwischenruf` bei Zwischenrufen, `null` wenn unbekannt), `beleg` (Satz des ersten Vorkommens), `fraktionen` (je Wahlperiode ab der 19. die Anzahl je Fraktion in Reden) |
 | `search/<Präfix>.json` | Suchindex: `[Lemma, Anzahl]` und `[Wortform, Anzahl des Lemmas, Lemma]`, nach Anzahl sortiert |
