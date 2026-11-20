@@ -45,10 +45,23 @@ RUNNING_HEAD = re.compile(
     rf'[ \t]*Deutscher Bundestag\s*{DASH}\s*\d+\.\s*Wahlperiode\s*{DASH}\s*\d+\.\s*Sitzung\.?\s*'
     rf'(?:Bonn|Berlin)?\s*,?\s*(?:den\s+)?(?:{WEEKDAY}\s*,?\s*)?(?:den\s+)?\d{{1,2}}\.\s*[A-Za-zÄÖÜäöü]+\s+\d{{4}}'
     r'[ \t]*\d*\s*\*?[ \t]*\n?')
+
+
+def list_line(lower_case_words: str, punctuation: str = '') -> str:
+    """A line of words that each begin with a capital, a digit or a bracket, or are one of the lower-case words or
+    punctuation, also glued together without a space. A run of characters without a space is matched as a whole and
+    not split again, so that a line that is no list line fails at once instead of after trying every way to split
+    the line into words."""
+    lower_case = rf'(?:{lower_case_words}|[{punctuation}])' if punctuation else rf'(?:{lower_case_words})'
+    capitalised = r'[A-ZÄÖÜ0-9(\[][^\s\xa0]*+'
+    token = rf'(?>(?:{lower_case}+(?:{capitalised})?|{capitalised})(?=\s))'
+    return rf'[ \t\xa0]*+(?:{token}[ \t\xa0]*+)*+'
+
+
 # The list holds names, groups, dates and a header; it ends with the first other line or the next appendix.
-EXCUSED_LIST_WORD = (r"(?:[A-ZÄÖÜ0-9(\[][^\s\xa0]*|von|van|vom|de|der|den|zu|dos|da|am|an|im|in|bei|bis|einschließlich"
-                     r"|entschuldigt|beurlaubt|und|[*,.–-]+)")
-EXCUSED_LIST_LINE = rf'(?![ \t\xa0]*Anlage)[ \t\xa0]*(?:{EXCUSED_LIST_WORD}[ \t\xa0]*)*'
+EXCUSED_LIST_LINE = (r'(?![ \t\xa0]*Anlage)'
+                     + list_line(r'einschließlich|entschuldigt|beurlaubt|von|van|vom|der|den|de|zu|dos|da|am|an|im|in'
+                                 r'|bei|bis|und', '*,.–-'))
 EXCUSED_MEMBERS = re.compile(
     r'(?:Liste der (?:entschuldigten|beurlaubten) Abgeordneten|Entschuldigte Abgeordnete|Beurlaubte Abgeordnete)'
     rf'[^\n]*\n(?:{EXCUSED_LIST_LINE}\n)*')
@@ -58,9 +71,8 @@ VOTER = r"(?:Frau[ \t]+)?(?:Dr\.[ \t]*)?(?:[A-ZÄÖÜ][\w’'\-]*\.?[ \t]*){1,3}
 OLD_VOTE_LINE = re.compile(rf'^[ \t]*(?:{VOTER}[ \t.]+{VOTE}[ \t]*){{1,2}}$|^[ \t]*Name[ \t]+Abstimmung.*$',
                            re.MULTILINE)
 # Under a result follow lines of names, groups and figures; the first line with ordinary lower-case words ends it.
-LIST_LINE_WORD = (r"(?:[A-ZÄÖÜ0-9(\[][^\s\xa0]*|von|van|vom|de|der|den|zu|dos|da|am|an|im|in|bei|ob|a\.|d\.|"
-                  r"(?:ja|nein|enthalten|davon|ungültig|gültig):?)")
-LIST_LINE = rf'[ \t\xa0]*(?:{LIST_LINE_WORD}[ \t\xa0]*)*'
+LIST_LINE = list_line(r'(?:enthalten|ungültig|gültig|davon|nein|ja):?|von|van|vom|der|den|de|zu|dos|da|am|an|im|in|bei'
+                      r'|ob|a\.|d\.')
 CURRENT_VOTE_LIST = re.compile(rf'(?:Endgültiges|Vorläufiges) Ergebnis[ \t]*\n(?:{LIST_LINE}\n)*')
 URL = re.compile(r'(?:https?|ftp)://\S+|www\.\S+')
 # Text recognition sometimes puts the hyphen on a line of its own ("Euro\n-\npäer").
