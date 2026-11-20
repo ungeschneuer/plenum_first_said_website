@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { getRecentlyFirstSaid } from '../../utils/staticData';
 import { formatLongDate, formatNumber } from '../../utils/german';
 import { BOT_ACCOUNT } from '../../siteConfig';
+import { speakerOf } from '../../utils/speaker';
 import { Skeleton } from '../ui/skeleton';
 
 const INITIALLY_SHOWN_SESSIONS = 5;
@@ -15,14 +16,6 @@ function groupBySession(words) {
     sessions.get(key).words.push(word);
   }
   return [...sessions.values()];
-}
-
-function speakerOf(word) {
-  if (!word.erste) return null;
-  const { name, fraktion, rolle, zwischenruf, zitat } = word.erste;
-  const affiliation = [fraktion, rolle].filter(Boolean).join(', ');
-  const prefix = zitat ? 'Zitat, vorgelesen von ' : zwischenruf ? 'Zwischenruf von ' : '';
-  return `${prefix}${name}${affiliation ? ` (${affiliation})` : ''}`;
 }
 
 function Session({ session }) {

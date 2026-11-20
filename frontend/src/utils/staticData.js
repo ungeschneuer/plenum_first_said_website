@@ -195,6 +195,28 @@ export async function getRecentlyFirstSaid() {
   return loadJson('neue-woerter.json');
 }
 
+// Figures for the home page, from the protocol list alone; a session printed in another's protocol is left out.
+export async function getOverview() {
+  const protocols = (await loadProtocols()).filter((protocol) => !protocol.gemeinsam_mit);
+  const terms = new Map();
+  for (const protocol of protocols) {
+    const term = terms.get(protocol.wahlperiode) ?? {
+      wahlperiode: protocol.wahlperiode, sessions: 0, words: 0, first_date: protocol.datum,
+    };
+    term.sessions += 1;
+    term.words += protocol.woerter;
+    term.last_date = protocol.datum;
+    terms.set(protocol.wahlperiode, term);
+  }
+  return {
+    sessions: protocols.length,
+    words: protocols.reduce((sum, protocol) => sum + protocol.woerter, 0),
+    first_date: protocols[0]?.datum,
+    last_date: protocols.at(-1)?.datum,
+    terms: [...terms.values()].sort((a, b) => a.wahlperiode - b.wahlperiode),
+  };
+}
+
 export async function getStatus() {
   const protocols = await loadProtocols();
   return {
