@@ -92,6 +92,13 @@ jobs:
           python pipeline/speaker_statistics.py static-data
           python pipeline/word_statistics.py static-data
 
+      # Ausbleibende Protokolle halten die Veröffentlichung nicht auf; der Lauf schlägt erst am Ende fehl.
+      - name: Aktualität prüfen
+        id: fresh
+        if: steps.rules.outputs.current == 'true'
+        continue-on-error: true
+        run: python pipeline/check_freshness.py static-data
+
       - name: Neuen Datenstand im Release sichern
         id: save
         if: steps.rules.outputs.current == 'true'
@@ -140,3 +147,9 @@ jobs:
       - id: deployment
         if: steps.rules.outputs.current == 'true' && (github.event_name != 'schedule' || steps.save.outputs.changed == 'true')
         uses: actions/deploy-pages@v5
+
+      - name: Bei ausbleibenden Protokollen fehlschlagen
+        if: steps.fresh.outcome == 'failure'
+        run: |
+          echo "::error::Seit Wochen kein neues Protokoll; Einzelheiten im Schritt Aktualität prüfen."
+          exit 1

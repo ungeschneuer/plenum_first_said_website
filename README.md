@@ -23,7 +23,7 @@ Vite) liest sie direkt. Ein Workflow schreibt die Daten täglich fort und veröf
 | `frontend/` | die Seite; `src/utils/staticData.js` liest die Dateien |
 | `frontend/src/pageMeta.js` | Titel, Beschreibung und Vorschaubild jeder Seite; `frontend/scripts/page-html.mjs` schreibt daraus nach dem Bau eine HTML-Datei je Seite, auch je Person und je neuem Wort, damit Links die passende Vorschau zeigen |
 | `frontend/scripts/og-images.mjs` | erzeugt die Vorschaubilder (1200 × 630 Pixel) mit Playwright: ohne Argument die Bilder der festen Seiten in `frontend/public/og/`, die nach einer Änderung der Texte neu erzeugt und eingecheckt werden; mit `--dist dist` beim Veröffentlichen ein Bild je Person (Name, Zahl der zuerst gesagten Wörter, Balken je Wahlperiode) und je neuem Wort (erstes Vorkommen und erste Person) |
-| `.github/workflows/pages.yml` | täglich: Datenstand aus dem Release `daten` laden, neue Protokolle aus DIP aufnehmen, sichern, veröffentlichen; startet den Neuaufbau, wenn sich die Zählregeln geändert haben |
+| `.github/workflows/pages.yml` | täglich: Datenstand aus dem Release `daten` laden, neue Protokolle aus DIP aufnehmen, sichern, veröffentlichen; startet den Neuaufbau, wenn sich die Zählregeln geändert haben, und schlägt fehl, wenn seit Wochen kein neues Protokoll kam (`pipeline/check_freshness.py`) |
 | `.github/workflows/rebuild.yml` | alle Protokolle neu aus DIP zählen, mit dem bisherigen Datenstand vergleichen (`pipeline/compare_data.py`) und ihn ersetzen; nötig, wenn sich der Fingerabdruck der Zählregeln (`pipeline/rules_version.py`) ändert |
 
 ## Lemmatisierung
@@ -44,7 +44,7 @@ Alle Dateien sind JSON in UTF-8.
 
 | Datei | Inhalt |
 |---|---|
-| `protocols.json` | alle Protokolle nach Datum: `id` (DIP), `wahlperiode`, `nummer` (z. B. `21/108`), `datum`, `pdf`, `woerter` (gezählte Wörter), `gemeinsam_mit` (bei einer Sitzung, die im Protokoll einer anderen Sitzung desselben Tages steht: deren Nummer; die Sitzung wird dann nicht gezählt); die Position in der Liste ist der Protokollindex |
+| `protocols.json` | alle Protokolle nach Datum: `id` (DIP), `wahlperiode`, `nummer` (z. B. `21/108`), `datum`, `pdf`, `woerter` (gezählte Wörter), `datum_dip` (nur wenn das Datum aus DIP nicht zur Reihenfolge der Sitzungen passte und korrigiert wurde, siehe `pipeline/protocol_dates.py`), `gemeinsam_mit` (bei einer Sitzung, die im Protokoll einer anderen Sitzung desselben Tages steht: deren Nummer; die Sitzung wird dann nicht gezählt); die Position in der Liste ist der Protokollindex |
 | `shards.json` | Schlüssel der Teildateien; ein Lemma steht in der Teildatei mit dem längsten Schlüssel, der seine gefaltete Schreibung beginnt (klein, ä zu ae, ß zu ss, alles außer a bis z zu `_`) |
 | `words/<Schlüssel>.json` | je Lemma: `reihe` (Paare aus Abstand zum vorigen Protokollindex und Anzahl, das erste Paar mit dem absoluten Index), `formen` (Wortform: Anzahl), `erste` (Name und Fraktion oder Rolle der ersten Person, `zwischenruf` bei Zwischenrufen, `null` wenn unbekannt), `beleg` (Satz des ersten Vorkommens), `fraktionen` (je Wahlperiode ab der 19. die Anzahl je Fraktion in Reden) |
 | `search/<Präfix>.json` | Suchindex: `[Lemma, Anzahl]` und `[Wortform, Anzahl des Lemmas, Lemma]`, nach Anzahl sortiert |
