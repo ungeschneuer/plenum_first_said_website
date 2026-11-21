@@ -18,7 +18,7 @@ export default defineConfig({
   ],
   resolve: {
     alias: {
-      '@': path.resolve(__dirname, './src'),
+      '@': path.resolve(import.meta.dirname, './src'),
     },
   },
   server: {
@@ -28,11 +28,14 @@ export default defineConfig({
     // Optimize chunks
     rollupOptions: {
       output: {
-        manualChunks: {
-          // Vendor chunks - separate large dependencies
-          'react-vendor': ['react', 'react-dom', 'react-router-dom'],
-          'chart-vendor': ['chart.js', 'react-chartjs-2'],
-        }
+        // Vendor chunks - separate large dependencies
+        manualChunks(id) {
+          if (/[\\/]node_modules[\\/](react|react-dom|react-router|react-router-dom|scheduler)[\\/]/.test(id)) {
+            return 'react-vendor';
+          }
+          if (/[\\/]node_modules[\\/](chart\.js|react-chartjs-2|@kurkle)[\\/]/.test(id)) return 'chart-vendor';
+          return undefined;
+        },
       }
     },
     // Chunk size warning limit
