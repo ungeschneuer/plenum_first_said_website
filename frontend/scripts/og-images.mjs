@@ -14,10 +14,12 @@ const { chromium } = createRequire(import.meta.url)('playwright');
 
 const OUTPUT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public', 'og');
 
-const BLACK = '#0a0a0a';
+const BLACK = '#000000';
+const WHITE = '#ffffff';
 const GOLD = '#ffcc00';
 const RED = '#dd0000';
-const GREY = '#a3a3a3';
+const GREY = '#52525b';
+const DARK_GOLD = '#a16207';
 
 // A row of bars with a highlighted bar, one shape per image so that the images differ at a glance.
 const MOTIFS = {
@@ -52,7 +54,7 @@ function bars(values) {
     const highlighted = index === values.lastIndexOf(Math.max(...values));
     const barHeight = Math.max(value * unit, 4);
     return `<rect x="${x}" y="${height - barHeight}" width="${columnWidth}" height="${barHeight}" ` +
-      `fill="${highlighted ? GOLD : '#3f3f46'}" rx="3"/>`;
+      `fill="${highlighted ? GOLD : '#d4d4d8'}" rx="3"/>`;
   });
   return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${rects.join('')}</svg>`;
 }
@@ -62,18 +64,18 @@ function html({ image, heading, caption }) {
   return `<!doctype html>
 <html lang="de"><head><meta charset="utf-8"><style>
   * { margin: 0; box-sizing: border-box; }
-  body { width: 1200px; height: 630px; background: ${BLACK}; color: #fafafa; font-family: Inter, sans-serif;
+  body { width: 1200px; height: 630px; background: ${WHITE}; color: ${BLACK}; font-family: Inter, sans-serif;
          display: flex; flex-direction: column; overflow: hidden; }
   .flag { display: flex; height: 12px; }
   .flag span { flex: 1; }
   main { flex: 1; display: flex; align-items: center; gap: 64px; padding: 0 80px; }
   .text { flex: 1; display: flex; flex-direction: column; gap: 28px; }
-  .site { font-size: 30px; font-weight: 600; color: ${GOLD}; letter-spacing: 0.01em; }
+  .site { font-size: 30px; font-weight: 600; color: ${DARK_GOLD}; letter-spacing: 0.01em; }
   h1 { font-size: ${heading.length > 24 ? 64 : 80}px; font-weight: 800; line-height: 1.05; letter-spacing: -0.02em; }
   p { font-size: 32px; line-height: 1.3; color: ${GREY}; }
-  .chart { flex: none; padding-top: 40px; border-bottom: 3px solid #52525b; }
+  .chart { flex: none; padding-top: 40px; border-bottom: 3px solid #a1a1aa; }
 </style></head><body>
-  <div class="flag"><span style="background:#000;border-bottom:1px solid #27272a"></span>
+  <div class="flag"><span style="background:${BLACK}"></span>
     <span style="background:${RED}"></span><span style="background:${GOLD}"></span></div>
   <main>
     <div class="text">
