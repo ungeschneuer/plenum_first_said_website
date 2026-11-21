@@ -17,6 +17,8 @@ import { pagesFromData } from './page-html.mjs';
 const require = createRequire(import.meta.url);
 const { chromium } = require('playwright');
 const sharp = require('sharp');
+// Chromium does not hyphenate long compounds on its own; soft hyphens from German patterns mark the break points.
+const { hyphenateSync } = require('hyphen/de');
 
 const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
 const WIDTH = 1200;
@@ -92,7 +94,52 @@ function bars(values) {
   return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${rects.join('')}</svg>`;
 }
 
-// A long single word gets a smaller size and is hyphenated; text with spaces breaks between words.
+// Large headings get at most three lines, from SMALL_HEADING_SIZE on four.
+const MAX_HEADING_LINES = 4;
+const SMALL_HEADING_SIZE = 44;
+const MIN_HEADING_SIZE = 30;
+const SHRINK_BEFORE_HYPHENATING = 44;
+const MIN_TEXT_SCALE = 0.75;
+
+// Fits the heading first by shrinking it with breaks only between words and at hyphens in the text, down to
+// SHRINK_BEFORE_HYPHENATING; if that is not enough, again from the start with hyphenation of long words, down to
+// MIN_HEADING_SIZE. Then the smaller texts shrink until the whole column fits. Only text that does not fit even then
+// is cut.
+function fitText({ maxLines, smallSize, minSize, hyphenateBelow, minScale }) {
+  const main = document.querySelector('main');
+  const column = document.querySelector('.text');
+  const heading = document.querySelector('h1');
+  const small = [...document.querySelectorAll('p, .detail')];
+  const smallSizes = small.map((element) => parseFloat(getComputedStyle(element).fontSize));
+  const headingFits = () => {
+    const size = parseFloat(heading.style.fontSize || getComputedStyle(heading).fontSize);
+    const lines = Math.round(heading.getBoundingClientRect().height / (size * 1.05));
+    return heading.scrollWidth <= heading.clientWidth + 1 && lines <= (size > smallSize ? maxLines - 1 : maxLines);
+  };
+  const columnFits = () => column.scrollHeight <= main.clientHeight - 48;
+  const startSize = parseFloat(getComputedStyle(heading).fontSize);
+  const shrink = (lowest) => {
+    let size = startSize;
+    heading.style.fontSize = `${size}px`;
+    while (!(headingFits() && columnFits()) && size > lowest) {
+      size -= 2;
+      heading.style.fontSize = `${size}px`;
+    }
+    return headingFits() && columnFits();
+  };
+  heading.style.hyphens = 'none';
+  if (!shrink(hyphenateBelow)) {
+    heading.style.hyphens = 'manual';
+    shrink(minSize);
+  }
+  for (let scale = 0.95; !columnFits() && scale >= minScale; scale -= 0.05) {
+    small.forEach((element, index) => { element.style.fontSize = `${smallSizes[index] * scale}px`; });
+  }
+  if (!headingFits()) heading.classList.add('squeezed');
+  if (!columnFits()) column.classList.add('squeezed');
+}
+
+// Starting size of the heading; fitText makes it smaller where needed.
 function headingSize(heading) {
   const longestWord = Math.max(...heading.split(/\s+/).map((word) => word.length));
   const length = heading.length;
@@ -118,12 +165,13 @@ export function cardHtml(card, fonts) {
   .site { font-size: 28px; font-weight: 600; color: ${DARK_GOLD}; letter-spacing: 0.01em; }
   .site span { color: ${GREY}; font-weight: 400; }
   h1 { font-size: ${headingSize(card.heading)}px; font-weight: 800; line-height: 1.05; letter-spacing: -0.02em;
-       hyphens: auto; overflow-wrap: break-word; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
-       overflow: hidden; }
+       hyphens: manual; overflow-wrap: normal; }
+  h1.squeezed { overflow-wrap: anywhere; display: -webkit-box; -webkit-line-clamp: ${MAX_HEADING_LINES};
+                -webkit-box-orient: vertical; overflow: hidden; }
   p { font-size: 30px; line-height: 1.3; color: ${GREY}; }
   .details { display: flex; flex-direction: column; gap: 6px; }
-  .detail { font-size: 26px; line-height: 1.3; color: ${GREY}; display: -webkit-box; -webkit-line-clamp: 2;
-            -webkit-box-orient: vertical; overflow: hidden; }
+  .detail { font-size: 26px; line-height: 1.3; color: ${GREY}; }
+  .text.squeezed .detail { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
   .chart { flex: none; display: flex; flex-direction: column; gap: 12px; padding-top: 40px; }
   .chart svg { border-bottom: 3px solid #a1a1aa; }
   .chart-label { font-size: 20px; color: ${GREY}; text-align: right; }
@@ -133,7 +181,7 @@ export function cardHtml(card, fonts) {
   <main>
     <div class="text">
       <div class="site">${SITE_NAME}${card.label ? ` <span>· ${escapeHtml(card.label)}</span>` : ''}</div>
-      <h1>${escapeHtml(card.heading)}</h1>
+      <h1>${escapeHtml(hyphenateSync(card.heading))}</h1>
       <p>${escapeHtml(card.caption)}</p>
       ${details ? `<div class="details">${details}</div>` : ''}
     </div>
@@ -157,6 +205,10 @@ export async function renderCards(images, outputDirectory) {
       mkdirSync(path.dirname(file), { recursive: true });
       await page.setContent(cardHtml(card, fonts));
       await page.evaluate(() => document.fonts.ready);
+      await page.evaluate(fitText, {
+        maxLines: MAX_HEADING_LINES, smallSize: SMALL_HEADING_SIZE, minSize: MIN_HEADING_SIZE,
+        hyphenateBelow: SHRINK_BEFORE_HYPHENATING, minScale: MIN_TEXT_SCALE,
+      });
       // A palette of 64 colours keeps the image at about a quarter of the size without visible loss.
       const screenshot = await page.screenshot();
       await sharp(screenshot).png({ palette: true, colours: 64, compressionLevel: 9, effort: 10 }).toFile(file);

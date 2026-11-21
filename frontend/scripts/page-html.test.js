@@ -38,6 +38,8 @@ describe('page-html', () => {
     expect(fileOfPath('/d', '/wort/Kl%C3%BCger')).toBe(path.join('/d', 'wort', 'Klüger', 'index.html'));
     expect(fileOfPath('/d', '/wort/%2E%2E')).toBeNull();
     expect(fileOfPath('/d', '/wort/a%2Fb')).toBeNull();
+    expect(fileOfPath('/d', `/wort/${encodeURIComponent('ä'.repeat(128))}`)).toBeNull();
+    expect(fileOfPath('/d', `/wort/${encodeURIComponent('ä'.repeat(127))}`)).not.toBeNull();
   });
 
   it('writes pages for static routes, persons and new words', () => {

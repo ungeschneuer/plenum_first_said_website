@@ -62,7 +62,10 @@ export function withHead(html, page, siteUrl) {
 export function fileOfPath(distDirectory, pagePath) {
   if (pagePath === '/') return path.join(distDirectory, 'index.html');
   const segments = pagePath.split('/').filter(Boolean).map(decodeURIComponent);
-  if (segments.some((segment) => segment === '.' || segment === '..' || /[/\\\0]/.test(segment))) return null;
+  // A file name has at most 255 bytes on the file systems of the build and of GitHub Pages.
+  const unsafe = (segment) => segment === '.' || segment === '..' || /[/\\\0]/.test(segment) ||
+    Buffer.byteLength(segment) > 255;
+  if (segments.some(unsafe)) return null;
   return path.join(distDirectory, ...segments, 'index.html');
 }
 
