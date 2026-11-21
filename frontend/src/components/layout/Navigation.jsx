@@ -12,6 +12,7 @@ export function Navigation() {
   const mainNavLinks = [
     { to: '/neu', label: 'Neu im Bundestag' },
     { to: '/personen', label: 'Personen' },
+    { to: '/statistik', label: 'Statistik' },
     { to: '/vergleich', label: 'Wortvergleich' },
   ];
 
