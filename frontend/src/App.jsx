@@ -1,4 +1,4 @@
-import { Suspense } from 'react';
+import { Suspense, useEffect } from 'react';
 import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster } from './components/ui/sonner';
 import { Navigation } from './components/layout/Navigation';
@@ -6,6 +6,7 @@ import { Footer } from './components/layout/Footer';
 import { Skeleton } from './components/ui/skeleton';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { lazyPage } from './utils/lazyPage';
+import { documentTitle } from './pageMeta';
 
 // Eager load: Only the home page (most commonly visited)
 import SearchPage from './components/SearchPage';
@@ -44,6 +45,11 @@ const LoadingFallback = () => (
 function AppContent() {
   const navigate = useNavigate();
   const { pathname } = useLocation();
+
+  // The HTML file of the first page carries its title; later pages are changed in the browser.
+  useEffect(() => {
+    document.title = documentTitle(pathname);
+  }, [pathname]);
 
   const handleSearch = (query) => {
     navigate(`/wort/${encodeURIComponent(query)}`);

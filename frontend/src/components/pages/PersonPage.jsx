@@ -6,6 +6,7 @@ import { Skeleton } from '../ui/skeleton';
 import { Input } from '../ui/input';
 import { BarChart } from '../home/BarChart';
 import { ALL_TERMS, rankPersons } from '../../utils/persons';
+import { pageTitle } from '../../pageMeta';
 
 const PAGE_SIZE = 100;
 const SHOWN_ATTRIBUTIONS = 4;
@@ -159,6 +160,10 @@ export default function PersonPage() {
     getPerson(id).then(setPerson).catch(() => setError('Zu dieser Person gibt es keine Daten.'));
     getPersons().then((data) => setPersons(data.personen)).catch(() => setPersons([]));
   }, [id]);
+
+  useEffect(() => {
+    if (person) document.title = pageTitle(person.name);
+  }, [person]);
 
   const summary = useMemo(() => persons?.find((entry) => entry.id === id), [persons, id]);
   const bars = useMemo(() => (person?.words.length ? wordsPerYear(person.words) : []), [person]);
