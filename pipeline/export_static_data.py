@@ -3,7 +3,7 @@
 Output layout (below --output):
   protocols.json      ordered list of protocols; a protocol's position is its index in every series; a protocol
                       that repeats the text of another session of the same day names it in "gemeinsam_mit" and
-                      is not counted
+                      is not counted; a date corrected by pipeline/protocol_dates.py keeps DIP's in "datum_dip"
   shards.json         list of shard keys; a lemma lives in the longest key that prefixes its folded form
   words/<key>.json    {lemma: {"reihe": [index gap, count, ...], "formen": {form: count, ...}, "erste": {...}}}
                       reihe: the lemma's count per protocol it occurs in, formen: the word forms it brings together,
@@ -54,6 +54,7 @@ from fragments import FragmentDetector
 from http_retry import fetch_bytes, fetch_json
 from lemmatizer import Lemmatizer
 from ocr_repair import split_glued_forms
+from protocol_dates import correct_dates
 from protocol_sources import SESSION_NUMBER, ProtocolArchives, complete_text, has_text
 from protocol_text import extract_words, is_multiword_term
 from rules_version import rules_version
@@ -628,6 +629,7 @@ def main() -> None:
         new_protocols = complete_texts(new_protocols, arguments.speaker_cache.parent, os.environ.get('DIP_API_KEY'))
     print(f'{len(new_protocols)} neue Protokolle', file=sys.stderr)
 
+    correct_dates(corpus.entries + [protocol.entry for protocol in new_protocols])
     add_protocols(corpus, new_protocols)
     log('gezählt und lemmatisiert')
     sort_chronologically(corpus)

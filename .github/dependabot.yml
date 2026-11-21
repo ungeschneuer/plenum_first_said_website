@@ -1,0 +1,23 @@
+# Monatliche Update-PRs; die Prüfung in ci.yml testet sie. Gruppiert, damit je Bereich ein PR entsteht.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ['*']
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: monthly
+    groups:
+      npm:
+        update-types: [minor, patch]
+
+  - package-ecosystem: pip
+    directory: /pipeline
+    schedule:
+      interval: monthly
