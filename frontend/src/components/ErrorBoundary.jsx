@@ -2,6 +2,7 @@ import { Component } from 'react';
 import { AlertTriangle, Home, RefreshCw } from 'lucide-react';
 import { Button } from './ui/button';
 import { Card, CardContent } from './ui/card';
+import { isOutdatedModuleError } from '../utils/lazyPage';
 
 export class ErrorBoundary extends Component {
   constructor(props) {
@@ -17,7 +18,12 @@ export class ErrorBoundary extends Component {
     console.error('ErrorBoundary caught:', error, info);
   }
 
+  // A page whose files could not be loaded stays broken until the whole page is loaded again.
   handleReset = () => {
+    if (isOutdatedModuleError(this.state.error)) {
+      window.location.reload();
+      return;
+    }
     this.setState({ hasError: false, error: null });
   };
 
@@ -36,7 +42,9 @@ export class ErrorBoundary extends Component {
           </div>
           <h1 className="text-2xl font-semibold mb-4">Ein Fehler ist aufgetreten</h1>
           <p className="text-muted-foreground mb-2">
-            Etwas ist schiefgelaufen. Bitte versuche es erneut oder kehre zur Startseite zurück.
+            {isOutdatedModuleError(this.state.error)
+              ? 'Die Seite wurde inzwischen aktualisiert. Bitte lade sie neu.'
+              : 'Etwas ist schiefgelaufen. Bitte versuche es erneut oder kehre zur Startseite zurück.'}
           </p>
           {this.state.error?.message && (
             <p className="text-sm text-muted-foreground font-mono mt-3 bg-muted px-4 py-2 rounded inline-block" role="alert">
@@ -57,7 +65,7 @@ export class ErrorBoundary extends Component {
                 Erneut versuchen
               </Button>
               <Button
-                onClick={() => { window.location.href = '/'; }}
+                onClick={() => { window.location.href = import.meta.env.BASE_URL; }}
                 aria-label="Zur Startseite"
               >
                 <Home className="h-4 w-4 mr-2" aria-hidden="true" />
