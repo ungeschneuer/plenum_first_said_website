@@ -1,28 +1,29 @@
-import { lazy, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, useNavigate } from 'react-router-dom';
+import { Suspense } from 'react';
+import { BrowserRouter as Router, Routes, Route, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster } from './components/ui/sonner';
 import { Navigation } from './components/layout/Navigation';
 import { Footer } from './components/layout/Footer';
 import { Skeleton } from './components/ui/skeleton';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { lazyPage } from './utils/lazyPage';
 
 // Eager load: Only the home page (most commonly visited)
 import SearchPage from './components/SearchPage';
 
 // Lazy load: All other components
-const WordTimeline = lazy(() => import('./components/WordTimeline'));
-const WordComparison = lazy(() => import('./components/WordComparison'));
-const RecentlyFirstSaid = lazy(() => import('./components/pages/RecentlyFirstSaid'));
-const PersonRanking = lazy(() => import('./components/pages/PersonRanking'));
-const PersonPage = lazy(() => import('./components/pages/PersonPage'));
-const Statistics = lazy(() => import('./components/pages/Statistics'));
+const WordTimeline = lazyPage(() => import('./components/WordTimeline'));
+const WordComparison = lazyPage(() => import('./components/WordComparison'));
+const RecentlyFirstSaid = lazyPage(() => import('./components/pages/RecentlyFirstSaid'));
+const PersonRanking = lazyPage(() => import('./components/pages/PersonRanking'));
+const PersonPage = lazyPage(() => import('./components/pages/PersonPage'));
+const Statistics = lazyPage(() => import('./components/pages/Statistics'));
 
 // Static pages - lazy load
-const NotFound = lazy(() => import('./components/pages/NotFound'));
-const Impressum = lazy(() => import('./components/pages/Impressum'));
-const Datenschutz = lazy(() => import('./components/pages/Datenschutz'));
-const FAQ = lazy(() => import('./components/pages/FAQ'));
-const About = lazy(() => import('./components/pages/About'));
+const NotFound = lazyPage(() => import('./components/pages/NotFound'));
+const Impressum = lazyPage(() => import('./components/pages/Impressum'));
+const Datenschutz = lazyPage(() => import('./components/pages/Datenschutz'));
+const FAQ = lazyPage(() => import('./components/pages/FAQ'));
+const About = lazyPage(() => import('./components/pages/About'));
 
 
 // Loading fallback component
@@ -42,6 +43,7 @@ const LoadingFallback = () => (
 
 function AppContent() {
   const navigate = useNavigate();
+  const { pathname } = useLocation();
 
   const handleSearch = (query) => {
     navigate(`/wort/${encodeURIComponent(query)}`);
@@ -55,7 +57,8 @@ function AppContent() {
       </a>
       <Navigation />
       <main id="main-content" className="flex-1">
-        <ErrorBoundary>
+        {/* A new page starts without the error of the previous one. */}
+        <ErrorBoundary key={pathname}>
         <Suspense fallback={<LoadingFallback />}>
           <Routes>
             <Route path="/" element={<SearchPage />} />
