@@ -12,7 +12,7 @@ from pathlib import Path
 
 PIPELINE_DIRECTORY = Path(__file__).parent
 RULE_FILES = (
-    'export_static_data.py', 'first_occurrence.py', 'fragments.py', 'lemmatizer.py', 'ocr_repair.py',
+    'export_static_data.py', 'first_occurrence.py', 'fragments.py', 'lemmatizer.py', 'ocr_repair.py', 'protocol_dates.py',
     'protocol_sources.py', 'protocol_text.py', 'speaker_lines.py', 'speakers.py', 'text_speakers.py',
     'first_names.txt', 'member_surnames.txt', 'multiword_terms.txt', 'requirements.txt',
 )
