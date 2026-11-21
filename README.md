@@ -22,7 +22,7 @@ Vite) liest sie direkt. Ein Workflow schreibt die Daten täglich fort und veröf
 | `pipeline/word_statistics.py` | Wiederkehrer, Einmalwörter und typische Wörter der Fraktionen aus einem fertigen Export; läuft nach jedem Export und gehört nicht zu den Zählregeln |
 | `frontend/` | die Seite; `src/utils/staticData.js` liest die Dateien |
 | `frontend/src/pageMeta.js` | Titel, Beschreibung und Vorschaubild jeder Seite; `frontend/scripts/page-html.mjs` schreibt daraus nach dem Bau eine HTML-Datei je Seite, auch je Person und je neuem Wort, damit Links die passende Vorschau zeigen |
-| `frontend/scripts/og-images.mjs` | erzeugt die Vorschaubilder in `frontend/public/og/` (1200 × 630 Pixel) mit Playwright; nach einer Änderung der Texte von Hand ausführen und die Bilder einchecken |
+| `frontend/scripts/og-images.mjs` | erzeugt die Vorschaubilder (1200 × 630 Pixel) mit Playwright: ohne Argument die Bilder der festen Seiten in `frontend/public/og/`, die nach einer Änderung der Texte neu erzeugt und eingecheckt werden; mit `--dist dist` beim Veröffentlichen ein Bild je Person (Name, Zahl der zuerst gesagten Wörter, Balken je Wahlperiode) und je neuem Wort (erstes Vorkommen und erste Person) |
 | `.github/workflows/pages.yml` | täglich: Datenstand aus dem Release `daten` laden, neue Protokolle aus DIP aufnehmen, sichern, veröffentlichen; startet den Neuaufbau, wenn sich die Zählregeln geändert haben |
 | `.github/workflows/rebuild.yml` | alle Protokolle neu aus DIP zählen, mit dem bisherigen Datenstand vergleichen (`pipeline/compare_data.py`) und ihn ersetzen; nötig, wenn sich der Fingerabdruck der Zählregeln (`pipeline/rules_version.py`) ändert |
 

@@ -1,24 +1,34 @@
-// Renders the preview images in public/og/ (1200 × 630 pixels) from the texts in src/pageMeta.js.
-// The images are part of the repository; run this after changing a text or the design:
-//   node scripts/og-images.mjs
-// Needs Playwright with Chromium and the font Inter on the machine that runs it.
+// Renders the preview images (1200 × 630 pixels) with Playwright.
+//
+//   node scripts/og-images.mjs              images of the fixed pages into public/og/, from src/pageMeta.js;
+//                                           they are part of the repository, run this after changing a text
+//   node scripts/og-images.mjs --dist dist  one image per person and per new word into dist/og/, from dist/data;
+//                                           run by the publishing workflow after the build
+//
+// The font Inter comes from @fontsource/inter, so the images look the same on every machine.
 
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 import { createRequire } from 'node:module';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { PAGES, SITE_NAME, TEMPLATE_IMAGES } from '../src/pageMeta.js';
+import { pagesFromData } from './page-html.mjs';
 
-// Loaded with require so that a Playwright installed outside the project (NODE_PATH) is found as well.
-const { chromium } = createRequire(import.meta.url)('playwright');
+const require = createRequire(import.meta.url);
+const { chromium } = require('playwright');
+const sharp = require('sharp');
 
-const OUTPUT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'public', 'og');
+const ROOT = path.join(path.dirname(fileURLToPath(import.meta.url)), '..');
+const WIDTH = 1200;
+const HEIGHT = 630;
+const PARALLEL_PAGES = 6;
 
 const BLACK = '#000000';
 const WHITE = '#ffffff';
 const GOLD = '#ffcc00';
 const RED = '#dd0000';
 const GREY = '#52525b';
+const LIGHT_GREY = '#d4d4d8';
 const DARK_GOLD = '#a16207';
 
 // A row of bars with a highlighted bar, one shape per image so that the images differ at a glance.
@@ -34,14 +44,38 @@ const MOTIFS = {
   person: [16, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
 };
 
+function escapeHtml(text) {
+  return String(text)
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;');
+}
+
+function fontFaces() {
+  const directory = path.join(path.dirname(require.resolve('@fontsource/inter/package.json')), 'files');
+  const faces = [];
+  for (const subset of ['latin', 'latin-ext']) {
+    for (const weight of [400, 600, 800]) {
+      const data = readFileSync(path.join(directory, `inter-${subset}-${weight}-normal.woff2`)).toString('base64');
+      faces.push(`@font-face { font-family: Inter; font-weight: ${weight}; font-style: normal; ` +
+        `src: url(data:font/woff2;base64,${data}) format('woff2'); }`);
+    }
+  }
+  return faces.join('\n');
+}
+
+// Values may be any size; the highest bar fills the chart.
 function bars(values) {
   const width = 360;
   const height = 300;
   const paired = Array.isArray(values[0]);
   const columns = values.length;
-  const gap = paired ? 14 : 8;
+  const gap = paired ? 14 : Math.max(2, Math.min(8, 96 / columns));
   const columnWidth = (width - gap * (columns - 1)) / columns;
-  const unit = height / 16;
+  const maximum = Math.max(1, ...values.flat());
+  const unit = height / maximum;
+  const highest = paired ? -1 : values.lastIndexOf(Math.max(...values));
   const rects = values.map((value, index) => {
     const x = index * (columnWidth + gap);
     if (paired) {
@@ -51,55 +85,112 @@ function bars(values) {
         `<rect x="${x + half + 4}" y="${height - value[1] * unit}" width="${half}" height="${value[1] * unit}" fill="${RED}" rx="3"/>`,
       ].join('');
     }
-    const highlighted = index === values.lastIndexOf(Math.max(...values));
     const barHeight = Math.max(value * unit, 4);
     return `<rect x="${x}" y="${height - barHeight}" width="${columnWidth}" height="${barHeight}" ` +
-      `fill="${highlighted ? GOLD : '#d4d4d8'}" rx="3"/>`;
+      `fill="${index === highest ? GOLD : LIGHT_GREY}" rx="${Math.min(3, columnWidth / 3)}"/>`;
   });
   return `<svg width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">${rects.join('')}</svg>`;
 }
 
-function html({ image, heading, caption }) {
-  const motif = MOTIFS[image] ?? MOTIFS.start;
+// A long single word gets a smaller size and is hyphenated; text with spaces breaks between words.
+function headingSize(heading) {
+  const longestWord = Math.max(...heading.split(/\s+/).map((word) => word.length));
+  const length = heading.length;
+  if (longestWord > 22 || length > 48) return 52;
+  if (longestWord > 16 || length > 30) return 64;
+  if (longestWord > 12 || length > 20) return 76;
+  return 88;
+}
+
+export function cardHtml(card, fonts) {
+  const motif = Array.isArray(card.motif) ? card.motif : MOTIFS[card.motif] ?? MOTIFS.start;
+  const details = (card.details ?? []).map((line) => `<div class="detail">${escapeHtml(line)}</div>`).join('');
   return `<!doctype html>
 <html lang="de"><head><meta charset="utf-8"><style>
+  ${fonts}
   * { margin: 0; box-sizing: border-box; }
-  body { width: 1200px; height: 630px; background: ${WHITE}; color: ${BLACK}; font-family: Inter, sans-serif;
+  body { width: ${WIDTH}px; height: ${HEIGHT}px; background: ${WHITE}; color: ${BLACK}; font-family: Inter, sans-serif;
          display: flex; flex-direction: column; overflow: hidden; }
-  .flag { display: flex; height: 12px; }
+  .flag { display: flex; height: 12px; flex: none; }
   .flag span { flex: 1; }
-  main { flex: 1; display: flex; align-items: center; gap: 64px; padding: 0 80px; }
-  .text { flex: 1; display: flex; flex-direction: column; gap: 28px; }
-  .site { font-size: 30px; font-weight: 600; color: ${DARK_GOLD}; letter-spacing: 0.01em; }
-  h1 { font-size: ${heading.length > 24 ? 64 : 80}px; font-weight: 800; line-height: 1.05; letter-spacing: -0.02em; }
-  p { font-size: 32px; line-height: 1.3; color: ${GREY}; }
-  .chart { flex: none; padding-top: 40px; border-bottom: 3px solid #a1a1aa; }
+  main { flex: 1; display: flex; align-items: center; gap: 64px; padding: 0 80px; min-height: 0; }
+  .text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 24px; }
+  .site { font-size: 28px; font-weight: 600; color: ${DARK_GOLD}; letter-spacing: 0.01em; }
+  .site span { color: ${GREY}; font-weight: 400; }
+  h1 { font-size: ${headingSize(card.heading)}px; font-weight: 800; line-height: 1.05; letter-spacing: -0.02em;
+       hyphens: auto; overflow-wrap: break-word; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;
+       overflow: hidden; }
+  p { font-size: 30px; line-height: 1.3; color: ${GREY}; }
+  .details { display: flex; flex-direction: column; gap: 6px; }
+  .detail { font-size: 26px; line-height: 1.3; color: ${GREY}; display: -webkit-box; -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical; overflow: hidden; }
+  .chart { flex: none; display: flex; flex-direction: column; gap: 12px; padding-top: 40px; }
+  .chart svg { border-bottom: 3px solid #a1a1aa; }
+  .chart-label { font-size: 20px; color: ${GREY}; text-align: right; }
 </style></head><body>
   <div class="flag"><span style="background:${BLACK}"></span>
     <span style="background:${RED}"></span><span style="background:${GOLD}"></span></div>
   <main>
     <div class="text">
-      <div class="site">${SITE_NAME}</div>
-      <h1>${heading}</h1>
-      <p>${caption}</p>
+      <div class="site">${SITE_NAME}${card.label ? ` <span>· ${escapeHtml(card.label)}</span>` : ''}</div>
+      <h1>${escapeHtml(card.heading)}</h1>
+      <p>${escapeHtml(card.caption)}</p>
+      ${details ? `<div class="details">${details}</div>` : ''}
     </div>
-    <div class="chart">${bars(motif)}</div>
+    <div class="chart">${bars(motif)}${card.chartLabel ? `<div class="chart-label">${escapeHtml(card.chartLabel)}</div>` : ''}</div>
   </main>
 </body></html>`;
 }
 
-const images = new Map();
-for (const page of [...PAGES, ...TEMPLATE_IMAGES]) {
-  if (page.heading && !images.has(page.image)) images.set(page.image, page);
+// images: [[file without extension, card], ...]
+export async function renderCards(images, outputDirectory) {
+  const fonts = fontFaces();
+  const browser = await chromium.launch();
+  const context = await browser.newContext({ viewport: { width: WIDTH, height: HEIGHT }, deviceScaleFactor: 1 });
+  let next = 0;
+  async function worker() {
+    const page = await context.newPage();
+    while (next < images.length) {
+      const [name, card] = images[next];
+      next += 1;
+      const file = path.join(outputDirectory, `${name}.png`);
+      mkdirSync(path.dirname(file), { recursive: true });
+      await page.setContent(cardHtml(card, fonts));
+      await page.evaluate(() => document.fonts.ready);
+      // A palette of 64 colours keeps the image at about a quarter of the size without visible loss.
+      const screenshot = await page.screenshot();
+      await sharp(screenshot).png({ palette: true, colours: 64, compressionLevel: 9, effort: 10 }).toFile(file);
+    }
+    await page.close();
+  }
+  try {
+    await Promise.all(Array.from({ length: Math.min(PARALLEL_PAGES, images.length) }, worker));
+  } finally {
+    await browser.close();
+  }
 }
 
-mkdirSync(OUTPUT, { recursive: true });
-const browser = await chromium.launch();
-const browserPage = await browser.newPage({ viewport: { width: 1200, height: 630 }, deviceScaleFactor: 1 });
-for (const [name, page] of images) {
-  await browserPage.setContent(html(page));
-  await browserPage.evaluate(() => document.fonts.ready);
-  await browserPage.screenshot({ path: path.join(OUTPUT, `${name}.png`) });
-  console.log(`og/${name}.png`);
+function fixedImages() {
+  const images = new Map();
+  for (const page of [...PAGES, ...TEMPLATE_IMAGES]) {
+    if (page.heading && !images.has(page.image)) {
+      images.set(page.image, { heading: page.heading, caption: page.caption, motif: page.image });
+    }
+  }
+  return [...images];
 }
-await browser.close();
+
+if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
+  const distIndex = process.argv.indexOf('--dist');
+  if (distIndex === -1) {
+    const images = fixedImages();
+    await renderCards(images, path.join(ROOT, 'public', 'og'));
+    console.log(`${images.length} Vorschaubilder in public/og geschrieben.`);
+  } else {
+    const dist = process.argv[distIndex + 1];
+    const images = pagesFromData(path.join(dist, 'data')).map((page) => [page.image, page.card]);
+    const started = Date.now();
+    await renderCards(images, path.join(dist, 'og'));
+    console.log(`${images.length} Vorschaubilder für Personen und Wörter in ${Math.round((Date.now() - started) / 1000)} s geschrieben.`);
+  }
+}

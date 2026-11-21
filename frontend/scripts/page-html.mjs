@@ -3,7 +3,8 @@
 // 404.html, which loads the same app.
 //
 // Usage: node scripts/page-html.mjs <dist directory> <public URL of the site>
-// Pages for persons and new words are written when dist/data holds personen.json and neue-woerter.json.
+// Pages for persons and new words are written when dist/data holds personen.json and neue-woerter.json; their
+// preview images come from scripts/og-images.mjs --dist, which runs before.
 
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -73,7 +74,8 @@ export function pagesFromData(dataDirectory) {
   const persons = readJson(path.join(dataDirectory, 'personen.json'))?.personen ?? [];
   const newWords = readJson(path.join(dataDirectory, 'neue-woerter.json')) ?? [];
   return [
-    ...persons.filter((person) => person.id && person.name).map(personPage),
+    // An id is the folded name (pipeline/speaker_statistics.py); anything else would not be a safe file name.
+    ...persons.filter((person) => /^[a-z0-9-]+$/.test(person.id ?? '') && person.name).map(personPage),
     ...newWords.filter((word) => word.lemma).map(wordPage),
   ];
 }
@@ -88,8 +90,11 @@ export function writePages(distDirectory, siteUrl) {
   for (const page of [...PAGES, ...pagesFromData(path.join(distDirectory, 'data'))]) {
     const file = fileOfPath(distDirectory, page.path);
     if (!file) continue;
+    // Pages of persons and words use their own image once scripts/og-images.mjs has rendered it.
+    const ownImage = existsSync(path.join(distDirectory, 'og', `${page.image}.png`));
+    const shown = page.fallbackImage && !ownImage ? { ...page, image: page.fallbackImage } : page;
     mkdirSync(path.dirname(file), { recursive: true });
-    writeFileSync(file, withHead(template, page, base));
+    writeFileSync(file, withHead(template, shown, base));
     written += 1;
   }
   return written;

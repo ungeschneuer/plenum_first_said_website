@@ -1,4 +1,4 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -53,7 +53,22 @@ describe('page-html', () => {
     const word = read('wort', 'Wortneuschöpfung', 'index.html');
     expect(word).toContain('og/wort.png');
     expect(word).toContain('in der Sitzung 21/50 von X Y');
+    expect(read('person', 'cem-oezdemir', 'index.html')).toContain('og/person.png');
     expect(read('404.html')).not.toContain('canonical');
     expect(read('404.html')).toContain('<div id="root"></div>');
+  });
+
+  it('uses the own image of a person once it is rendered', () => {
+    const dist = distWithData({ 'personen.json': { personen: [{ id: 'a-b', name: 'A B', anzahl: 2 }] } });
+    mkdirSync(path.join(dist, 'og', 'person'), { recursive: true });
+    writeFileSync(path.join(dist, 'og', 'person', 'a-b.png'), '');
+    writePages(dist, SITE);
+    expect(readFileSync(path.join(dist, 'person', 'a-b', 'index.html'), 'utf8')).toContain('og/person/a-b.png');
+  });
+
+  it('leaves out persons whose id is not a safe file name', () => {
+    const dist = distWithData({ 'personen.json': { personen: [{ id: '../x', name: 'X', anzahl: 1 }] } });
+    writePages(dist, SITE);
+    expect(existsSync(path.join(dist, 'x'))).toBe(false);
   });
 });
