@@ -15,6 +15,7 @@ const WordComparison = lazy(() => import('./components/WordComparison'));
 const RecentlyFirstSaid = lazy(() => import('./components/pages/RecentlyFirstSaid'));
 const PersonRanking = lazy(() => import('./components/pages/PersonRanking'));
 const PersonPage = lazy(() => import('./components/pages/PersonPage'));
+const Statistics = lazy(() => import('./components/pages/Statistics'));
 
 // Static pages - lazy load
 const NotFound = lazy(() => import('./components/pages/NotFound'));
@@ -63,6 +64,7 @@ function AppContent() {
             <Route path="/neu" element={<RecentlyFirstSaid />} />
             <Route path="/personen" element={<PersonRanking />} />
             <Route path="/person/:id" element={<PersonPage />} />
+            <Route path="/statistik" element={<Statistics />} />
 
             {/* Static Pages */}
             <Route path="/impressum" element={<Impressum />} />

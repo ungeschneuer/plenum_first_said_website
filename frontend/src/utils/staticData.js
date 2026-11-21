@@ -217,6 +217,12 @@ export async function getOverview() {
   };
 }
 
+// statistik.json with the protocol list its protocol indices refer to.
+export async function getStatistics() {
+  const [statistics, protocols] = await Promise.all([loadJson('statistik.json'), loadProtocols()]);
+  return { statistics, protocols };
+}
+
 export async function getPersons() {
   return loadJson('personen.json');
 }
