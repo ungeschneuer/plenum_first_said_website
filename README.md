@@ -77,6 +77,31 @@ cd frontend && npm ci && npm run dev
 Ohne Netz lässt `--skip-speakers` die Rednersuche aus. Einen API-Schlüssel für DIP gibt es auf der
 [Hilfeseite der DIP-API](https://dip.bundestag.de/%C3%BCber-dip/hilfe/api).
 
+## Teilen auf Instagram und LinkedIn
+
+Die nicht verlinkte Seite `/admin` erzeugt Bilder zu einem Wort, einer Person oder einer festen Seite und
+veröffentlicht sie als Instagram-Post, Instagram-Story oder LinkedIn-Beitrag. Sie zeigt eine Vorschau der drei
+Formate, schlägt einen Beitragstext vor und startet den Workflow `.github/workflows/share.yml`, der die Bilder mit
+`frontend/scripts/share-post.mjs` erzeugt und veröffentlicht. Mit „Nur Bilder erzeugen“ wird nichts veröffentlicht;
+die Bilder liegen dann im Artefakt `bilder` des Laufs.
+
+Die Seite selbst ist statisch und hält keine Zugangsdaten. Wer sie benutzt, braucht einen fein granularen
+GitHub-Token mit Zugriff nur auf dieses Repository und der Berechtigung „Actions: Read and write“; er wird im Browser
+gespeichert. Die Zugangsdaten der Plattformen liegen als Secrets im Repository (Settings, Secrets and variables,
+Actions):
+
+| Secret | Inhalt |
+|---|---|
+| `INSTAGRAM_ACCESS_TOKEN` | langlebiger Token eines Instagram-Business- oder Creator-Kontos mit der Berechtigung `instagram_content_publish` |
+| `INSTAGRAM_USER_ID` | ID des Instagram-Kontos in der Graph API |
+| `LINKEDIN_ACCESS_TOKEN` | Token mit der Berechtigung `w_member_social` (eigenes Profil) oder `w_organization_social` (Unternehmensseite); läuft nach 60 Tagen ab |
+| `LINKEDIN_AUTHOR` | `urn:li:person:…` oder `urn:li:organization:…` |
+
+Als Variablen lassen sich `INSTAGRAM_API_HOST` (Standard `graph.facebook.com`, mit Instagram-Login
+`graph.instagram.com`), `INSTAGRAM_API_VERSION` (Standard `v23.0`) und `LINKEDIN_VERSION` (Standard `202510`, Format
+JJJJMM) setzen. Instagram lädt das Bild von einer öffentlichen Adresse; der Workflow legt es dafür im Release
+`teilen` ab.
+
 ## Herkunft und Lizenz
 
 Die Seite ist aus dem Bot [Plenum First Said](https://github.com/ungeschneuer/plenum_first_said) entstanden, der auf

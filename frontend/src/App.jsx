@@ -25,6 +25,7 @@ const Impressum = lazyPage(() => import('./components/pages/Impressum'));
 const Datenschutz = lazyPage(() => import('./components/pages/Datenschutz'));
 const FAQ = lazyPage(() => import('./components/pages/FAQ'));
 const About = lazyPage(() => import('./components/pages/About'));
+const Admin = lazyPage(() => import('./components/pages/Admin'));
 
 
 // Loading fallback component
@@ -80,6 +81,8 @@ function AppContent() {
             <Route path="/datenschutz" element={<Datenschutz />} />
             <Route path="/faq" element={<FAQ />} />
             <Route path="/about" element={<About />} />
+            {/* Not linked: share images for Instagram and LinkedIn, see .github/workflows/share.yml */}
+            <Route path="/admin" element={<Admin />} />
 
             {/* Catch-all: 404 */}
             <Route path="*" element={<NotFound />} />
