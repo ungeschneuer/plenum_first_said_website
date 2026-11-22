@@ -25,6 +25,8 @@ concurrency:
 
 jobs:
   share:
+    # Nur die Inhaberin oder der Inhaber des Repositorys darf veröffentlichen, auch wenn andere Schreibrechte haben.
+    if: github.actor == github.repository_owner
     runs-on: ubuntu-latest
     timeout-minutes: 15
     defaults:

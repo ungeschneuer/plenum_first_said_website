@@ -104,6 +104,10 @@ Als Variablen lassen sich `INSTAGRAM_API_HOST` (Standard `graph.facebook.com`, m
 JJJJMM) setzen. Instagram lädt das Bild von einer öffentlichen Adresse; der Workflow legt es dafür im Release
 `teilen` ab.
 
+Der Workflow läuft nur, wenn ihn die Inhaberin oder der Inhaber des Repositorys startet; für alle anderen wird der
+Job übersprungen. Den Token sollte nur ein Browser speichern, den niemand sonst benutzt. Er liegt im Speicher der
+Adresse `ungeschneuer.github.io`, den alle GitHub-Pages-Seiten dieses Kontos teilen.
+
 ## Herkunft und Lizenz
 
 Die Seite ist aus dem Bot [Plenum First Said](https://github.com/ungeschneuer/plenum_first_said) entstanden, der auf
