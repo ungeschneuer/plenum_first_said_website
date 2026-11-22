@@ -26,7 +26,8 @@ env:
 jobs:
   update-and-build:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    # Ohne Bilder im Cache (erster Lauf, geänderte Gestaltung) dauert das Erzeugen der Bilder über eine halbe Stunde.
+    timeout-minutes: 90
     outputs:
       # Nur wenn das Seitenpaket hochgeladen wurde, wird veröffentlicht.
       artifact: ${{ steps.upload.outputs.artifact_id }}
@@ -51,6 +52,14 @@ jobs:
           path: .cache/structured-protocols
           key: structured-protocols-${{ github.run_id }}
           restore-keys: structured-protocols-
+
+      # Bilder aus früheren Läufen; neu erzeugt werden nur Bilder mit geändertem Inhalt oder geänderter Gestaltung.
+      - name: Bilder aus früheren Läufen
+        uses: actions/cache@v6
+        with:
+          path: .cache/og
+          key: og-images-${{ github.run_id }}
+          restore-keys: og-images-
 
       - name: Vorigen Datenstand laden
         env:
@@ -134,7 +143,7 @@ jobs:
           mv ../static-data dist/data
           # Ein Vorschaubild für jede Person und jedes neue Wort.
           npx playwright install --with-deps --only-shell chromium
-          node scripts/og-images.mjs --dist dist
+          node scripts/og-images.mjs --dist dist --cache ../.cache/og
           # Jede Seite erhält eine eigene HTML-Datei mit Titel, Beschreibung und Vorschaubild für Links. GitHub Pages
           # kennt keine Weiterleitung auf index.html; die 404-Seite lädt für alle übrigen Pfade dieselbe App.
           node scripts/page-html.mjs dist "https://${{ github.repository_owner }}.github.io/${{ github.event.repository.name }}/"
