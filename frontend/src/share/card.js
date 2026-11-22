@@ -34,8 +34,8 @@ function escapeHtml(text) {
     .replaceAll('"', '&quot;');
 }
 
-// Values may be any size; the highest bar fills the chart.
-function bars(values, width, height) {
+// Values may be any size; the highest bar fills the chart. The bar at highlight is gold, by default the highest.
+function bars(values, width, height, highlight) {
   const paired = Array.isArray(values[0]);
   const columns = values.length;
   const scale = width / 360;
@@ -43,7 +43,7 @@ function bars(values, width, height) {
   const columnWidth = (width - gap * (columns - 1)) / columns;
   const maximum = Math.max(1, ...values.flat());
   const unit = height / maximum;
-  const highest = paired ? -1 : values.lastIndexOf(Math.max(...values));
+  const highest = paired ? -1 : highlight ?? values.lastIndexOf(Math.max(...values));
   const radius = Math.min(3 * scale, columnWidth / 3);
   const rects = values.map((value, index) => {
     const x = index * (columnWidth + gap);
@@ -180,7 +180,7 @@ export function cardHtml(card, { fonts, hyphenate, formatKey = 'link' }) {
       ${card.caption ? `<p>${escapeHtml(card.caption)}</p>` : ''}
       ${details ? `<div class="details">${details}</div>` : ''}
     </div>
-    <div class="chart">${bars(motif, ...layout.chart)}${chartLabel}</div>
+    <div class="chart">${bars(motif, ...layout.chart, Array.isArray(card.motif) ? card.highlight : undefined)}${chartLabel}</div>
     ${layout.portrait ? `<div class="address">${escapeHtml(SITE_ADDRESS)}</div>` : ''}
   </main>
 </body></html>`;

@@ -7,9 +7,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '../ui/tabs';
 import { SHARE_FORMATS } from '../../pageMeta';
 import { fitOptions, fitText } from '../../share/card';
 import { previewHtml } from '../../share/browserCard';
-import { CAPTION_LIMITS, SHAREABLE_PAGES, pageShare, personShare, wordShare } from '../../share/content';
+import {
+  CAPTION_LIMITS, SHAREABLE_PAGES, newWordShare, pageShare, personShare, returnShare, wordShare,
+} from '../../share/content';
 import { listShareRuns, startShareRun } from '../../share/github';
-import { getPersons, getWordDetails, getWordTimeline } from '../../utils/staticData';
+import { getPersons, getRecentlyFirstSaid, getStatistics, getWordDetails, getWordTimeline } from '../../utils/staticData';
 import { formatGermanDate } from '../../utils/german';
 
 const TOKEN_KEY = 'share-admin-token';
@@ -86,6 +88,95 @@ function TokenSection({ token, onChange }) {
         <Button type="submit" disabled={!draft.trim()}>Speichern</Button>
       </form>
     </Section>
+  );
+}
+
+const SHOWN_EVENTS = 15;
+
+function EventList({ title, description, items, onPick }) {
+  return (
+    <div className="space-y-2">
+      <h3 className="font-semibold">{title}</h3>
+      <p className="text-sm text-muted-foreground">{description}</p>
+      {items.length === 0 && <p className="text-sm text-muted-foreground">Zurzeit keine.</p>}
+      <ul className="divide-y rounded-md border empty:hidden">
+        {items.map((item) => (
+          <li key={item.key}>
+            <button
+              type="button"
+              className="flex w-full flex-wrap justify-between gap-x-4 px-3 py-2 text-left text-sm hover:bg-accent disabled:opacity-50"
+              onClick={() => onPick(item)}
+            >
+              <span className="min-w-0 font-medium [overflow-wrap:anywhere]">{item.lemma}</span>
+              <span className="text-muted-foreground">{item.info}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+// Events worth a post: words said again after a pause of ten years or more, and words said for the first time.
+function EventPicker({ onSelect }) {
+  const [data, setData] = useState(null);
+  const [state, setState] = useState({ loading: null, error: null });
+
+  useEffect(() => {
+    Promise.all([getStatistics(), getRecentlyFirstSaid()])
+      .then(([{ statistics, protocols }, newWords]) => setData({ statistics, protocols, newWords }))
+      .catch((error) => setState({ loading: null, error: error.message }));
+  }, []);
+
+  if (state.error && !data) return <p className="text-sm text-destructive">{state.error}</p>;
+  if (!data) return <p className="text-sm text-muted-foreground">Ereignisse werden geladen …</p>;
+
+  const { protocols } = data;
+  const returns = data.statistics.wiederkehrer.zuletzt.slice(0, SHOWN_EVENTS).map((entry) => {
+    const before = protocols[entry.vorher];
+    const again = protocols[entry.wieder];
+    const years = Math.floor((Date.parse(again.datum) - Date.parse(before.datum)) / (365.25 * 86400000));
+    return {
+      key: `wieder-${entry.lemma}`,
+      lemma: entry.lemma,
+      info: `nach ${years} Jahren am ${formatGermanDate(again.datum)}`,
+      pick: async () => onSelect(returnShare(entry, protocols, await getWordTimeline(entry.lemma))),
+    };
+  });
+  const newWords = data.newWords.slice(0, SHOWN_EVENTS).map((entry) => ({
+    key: `neu-${entry.lemma}`,
+    lemma: entry.lemma,
+    info: `${formatGermanDate(entry.protokoll.datum)}${entry.erste?.name ? `, ${entry.erste.name}` : ''}`,
+    pick: async () => onSelect(newWordShare(entry)),
+  }));
+
+  const pick = async (item) => {
+    setState({ loading: item.key, error: null });
+    try {
+      await item.pick();
+      setState({ loading: null, error: null });
+    } catch (error) {
+      setState({ loading: null, error: error.message });
+    }
+  };
+
+  return (
+    <div className="grid max-w-5xl gap-6 md:grid-cols-2">
+      <EventList
+        title="Wieder gesagt nach langer Pause"
+        description="Wörter, die im letzten Jahr nach mindestens zehn Jahren ohne Vorkommen wieder gesagt wurden, neueste zuerst."
+        items={returns}
+        onPick={pick}
+      />
+      <EventList
+        title="Neu im Bundestag"
+        description="Wörter, die in den letzten 90 Tagen zum ersten Mal gesagt wurden, neueste zuerst."
+        items={newWords}
+        onPick={pick}
+      />
+      {state.loading && <p className="text-sm text-muted-foreground">Wird geladen …</p>}
+      {state.error && <p className="text-sm text-destructive">{state.error}</p>}
+    </div>
   );
 }
 
@@ -312,12 +403,14 @@ export default function Admin() {
       <TokenSection token={token} onChange={changeToken} />
 
       <Section title="Inhalt">
-        <Tabs defaultValue="wort">
+        <Tabs defaultValue="ereignisse">
           <TabsList>
+            <TabsTrigger value="ereignisse">Ereignisse</TabsTrigger>
             <TabsTrigger value="wort">Wort</TabsTrigger>
             <TabsTrigger value="person">Person</TabsTrigger>
             <TabsTrigger value="seite">Seite</TabsTrigger>
           </TabsList>
+          <TabsContent value="ereignisse" className="pt-3"><EventPicker onSelect={select} /></TabsContent>
           <TabsContent value="wort" className="pt-3"><WordPicker onSelect={select} /></TabsContent>
           <TabsContent value="person" className="pt-3"><PersonPicker onSelect={select} /></TabsContent>
           <TabsContent value="seite" className="pt-3"><PagePicker onSelect={select} /></TabsContent>

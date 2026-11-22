@@ -1,7 +1,7 @@
 // What the admin view shares: the content of the image (card, see src/share/card.js), the address of the page and a
 // suggested text for the post. Built from the data the pages show.
 
-import { PAGES, personPage, wordPage } from '../pageMeta.js';
+import { PAGES, personPage, wordImageName, wordPage } from '../pageMeta.js';
 import { SITE_URL } from '../siteConfig.js';
 
 const NEW_WORD_DAYS = 90;
@@ -37,7 +37,8 @@ export function countsPerYear(timeline) {
 export function wordShare(details, timeline, today) {
   const word = {
     lemma: details.word,
-    protokoll: { nummer: details.protokollnummer, datum: details.first_date },
+    // getWordDetails gives the session number without the electoral term.
+    protokoll: { nummer: `${details.wahlperiode}/${details.protokollnummer}`, datum: details.first_date },
     anzahl: details.total_count,
     erste: details.first_speaker,
   };
@@ -79,6 +80,65 @@ export function personShare(person) {
     card: page.card,
     url,
     caption: `${page.description}\n\nAlle Wörter: ${url}\n\n#Bundestag #Sprache #OpenData`,
+  };
+}
+
+const DAYS_PER_YEAR = 365.25;
+
+function wholeYears(first, second) {
+  return Math.floor((Date.parse(second) - Date.parse(first)) / (DAYS_PER_YEAR * 86400000));
+}
+
+function times(count) {
+  return count === 1 ? 'einmal' : `${count.toLocaleString('de-DE')}-mal`;
+}
+
+// A word said again after a long pause: an entry of statistik.json (wiederkehrer), the protocol list and the word's
+// timeline (getWordTimeline) for the bars.
+export function returnShare(entry, protocols, timeline) {
+  const before = protocols[entry.vorher];
+  const again = protocols[entry.wieder];
+  const years = wholeYears(before.datum, again.datum);
+  const yearsText = `${years.toLocaleString('de-DE')} ${years === 1 ? 'Jahr' : 'Jahren'}`;
+  const counts = countsPerYear(timeline);
+  const path = `/wort/${encodeURIComponent(entry.lemma)}`;
+  const url = pageAddress(path);
+  const card = {
+    label: 'Wieder im Bundestag',
+    heading: entry.lemma,
+    caption: `Nach ${yearsText} wieder gesagt am ${formatDate(again.datum)} in der Sitzung ${again.nummer}`,
+    details: [
+      `Davor zuletzt am ${formatDate(before.datum)} in der Sitzung ${before.nummer}`,
+      `Vor der Pause ${times(entry.anzahl_vorher)} gesagt, seitdem ${times(entry.anzahl_nachher)}`,
+    ],
+    motif: counts.values.length > 1 ? counts.values : 'wort',
+    // The year of the return is gold, not the year with the most mentions.
+    highlight: counts.values.length > 1 ? Number(again.datum.slice(0, 4)) - counts.first : undefined,
+    chartLabel: counts.values.length > 1 ? `Häufigkeit je Jahr, ${counts.first} bis ${counts.last}` : '',
+  };
+  return {
+    name: `wieder-${wordImageName(entry.lemma)}`,
+    title: entry.lemma,
+    card,
+    url,
+    caption: `„${entry.lemma}“ wurde am ${formatDate(again.datum)} zum ersten Mal seit ${yearsText} wieder im ` +
+      `Bundestag gesagt. Davor zuletzt am ${formatDate(before.datum)}.\n\nVerlauf seit 1949: ${url}\n\n` +
+      '#Bundestag #Sprache #OpenData',
+  };
+}
+
+// A word from neue-woerter.json (first said in the last 90 days).
+export function newWordShare(entry) {
+  const page = wordPage(entry);
+  const url = pageAddress(page.path);
+  const speaker = entry.erste?.name ? ` von ${entry.erste.name}` : '';
+  return {
+    name: page.image.replace(/^wort\//, 'wort-'),
+    title: entry.lemma,
+    card: page.card,
+    url,
+    caption: `„${entry.lemma}“ wurde am ${formatDate(entry.protokoll?.datum)}${speaker} zum ersten Mal im Bundestag ` +
+      `gesagt.\n\nVerlauf seit 1949: ${url}\n\n#Bundestag #Sprache #OpenData`,
   };
 }
 

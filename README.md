@@ -79,7 +79,9 @@ Ohne Netz lässt `--skip-speakers` die Rednersuche aus. Einen API-Schlüssel fü
 
 ## Teilen auf Instagram und LinkedIn
 
-Die nicht verlinkte Seite `/admin` erzeugt Bilder zu einem Wort, einer Person oder einer festen Seite und
+Die nicht verlinkte Seite `/admin` erzeugt Bilder zu einem Ereignis (ein Wort wurde nach mindestens zehn Jahren
+wieder gesagt, aus `statistik.json`, oder zum ersten Mal, aus `neue-woerter.json`), einem Wort, einer Person oder
+einer festen Seite und
 veröffentlicht sie als Instagram-Post, Instagram-Story oder LinkedIn-Beitrag. Sie zeigt eine Vorschau der drei
 Formate, schlägt einen Beitragstext vor und startet den Workflow `.github/workflows/share.yml`, der die Bilder mit
 `frontend/scripts/share-post.mjs` erzeugt und veröffentlicht. Mit „Nur Bilder erzeugen“ wird nichts veröffentlicht;
