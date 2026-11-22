@@ -1,4 +1,6 @@
 export const SITE_NAME = 'Bundestag Wortschatz';
+// Public address, shown on the share images; the publishing workflow passes the same address to scripts/page-html.mjs.
+export const SITE_URL = 'https://ungeschneuer.github.io/plenum_first_said_website/';
 
 export const OPERATOR = {
   name: 'Marcel Schneuer',

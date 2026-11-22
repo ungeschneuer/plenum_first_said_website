@@ -1,0 +1,71 @@
+name: Bild teilen
+run-name: "Teilen: ${{ fromJSON(inputs.request).card.heading }}${{ inputs.dry_run && ' (nur Bilder)' || '' }}"
+
+# Gestartet aus der Admin-Ansicht der Seite (/admin). Erzeugt die Bilder einer Anfrage und veröffentlicht sie auf
+# Instagram und LinkedIn; die Zugangsdaten liegen als Secrets im Repository (siehe README, Abschnitt Teilen).
+on:
+  workflow_dispatch:
+    inputs:
+      request:
+        description: 'Anfrage aus der Admin-Ansicht (JSON)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Nur Bilder erzeugen, nichts veröffentlichen'
+        required: false
+        type: boolean
+        default: true
+
+permissions:
+  contents: write
+
+concurrency:
+  group: share
+  cancel-in-progress: false
+
+jobs:
+  share:
+    # Nur die Inhaberin oder der Inhaber des Repositorys darf veröffentlichen, auch wenn andere Schreibrechte haben.
+    if: github.actor == github.repository_owner
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - run: npm ci
+
+      - run: npx playwright install --with-deps --only-shell chromium
+
+      # Die Anfrage kommt über eine Umgebungsvariable, nie direkt in den Befehl, damit ihr Text nicht als Shell-Code
+      # gelesen wird.
+      - name: Bilder erzeugen und veröffentlichen
+        env:
+          SHARE_REQUEST: ${{ inputs.request }}
+          DRY_RUN: ${{ inputs.dry_run }}
+          OUTPUT_DIR: share-images
+          GITHUB_TOKEN: ${{ github.token }}
+          INSTAGRAM_ACCESS_TOKEN: ${{ secrets.INSTAGRAM_ACCESS_TOKEN }}
+          INSTAGRAM_USER_ID: ${{ secrets.INSTAGRAM_USER_ID }}
+          INSTAGRAM_API_HOST: ${{ vars.INSTAGRAM_API_HOST }}
+          INSTAGRAM_API_VERSION: ${{ vars.INSTAGRAM_API_VERSION }}
+          LINKEDIN_ACCESS_TOKEN: ${{ secrets.LINKEDIN_ACCESS_TOKEN }}
+          LINKEDIN_AUTHOR: ${{ secrets.LINKEDIN_AUTHOR }}
+          LINKEDIN_VERSION: ${{ vars.LINKEDIN_VERSION }}
+        run: node scripts/share-post.mjs
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: bilder
+          path: frontend/share-images
+          if-no-files-found: ignore
+          retention-days: 30

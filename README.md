@@ -22,7 +22,7 @@ Vite) liest sie direkt. Ein Workflow schreibt die Daten täglich fort und veröf
 | `pipeline/word_statistics.py` | Wiederkehrer, Einmalwörter und typische Wörter der Fraktionen aus einem fertigen Export; läuft nach jedem Export und gehört nicht zu den Zählregeln |
 | `frontend/` | die Seite; `src/utils/staticData.js` liest die Dateien |
 | `frontend/src/pageMeta.js` | Titel, Beschreibung und Vorschaubild jeder Seite; `frontend/scripts/page-html.mjs` schreibt daraus nach dem Bau eine HTML-Datei je Seite, auch je Person und je neuem Wort, damit Links die passende Vorschau zeigen |
-| `frontend/scripts/og-images.mjs` | erzeugt die Vorschaubilder (1200 × 630 Pixel) mit Playwright: ohne Argument die Bilder der festen Seiten in `frontend/public/og/`, die nach einer Änderung der Texte neu erzeugt und eingecheckt werden; mit `--dist dist` beim Veröffentlichen ein Bild je Person (Name, Zahl der zuerst gesagten Wörter, Balken je Wahlperiode) und je neuem Wort (erstes Vorkommen und erste Person) |
+| `frontend/scripts/og-images.mjs` | erzeugt die Vorschau- und Teilen-Bilder mit Playwright, jeweils als Link-Vorschau und für LinkedIn (1200 × 630), Instagram-Post (1080 × 1350, Endung `-post`) und Instagram-Story (1080 × 1920, Endung `-story`); Personen- und Wortseiten bieten sie zum Herunterladen an: ohne Argument die Bilder der festen Seiten in `frontend/public/og/`, die nach einer Änderung der Texte neu erzeugt und eingecheckt werden; mit `--dist dist` beim Veröffentlichen ein Bild je Person (Name, Zahl der zuerst gesagten Wörter, Balken je Wahlperiode) und je neuem Wort (erstes Vorkommen und erste Person) |
 | `.github/workflows/pages.yml` | täglich: Datenstand aus dem Release `daten` laden, neue Protokolle aus DIP aufnehmen, sichern, veröffentlichen; startet den Neuaufbau, wenn sich die Zählregeln geändert haben, und schlägt fehl, wenn seit Wochen kein neues Protokoll kam (`pipeline/check_freshness.py`) |
 | `.github/workflows/rebuild.yml` | alle Protokolle neu aus DIP zählen, mit dem bisherigen Datenstand vergleichen (`pipeline/compare_data.py`) und ihn ersetzen; nötig, wenn sich der Fingerabdruck der Zählregeln (`pipeline/rules_version.py`) ändert |
 
@@ -76,6 +76,37 @@ cd frontend && npm ci && npm run dev
 
 Ohne Netz lässt `--skip-speakers` die Rednersuche aus. Einen API-Schlüssel für DIP gibt es auf der
 [Hilfeseite der DIP-API](https://dip.bundestag.de/%C3%BCber-dip/hilfe/api).
+
+## Teilen auf Instagram und LinkedIn
+
+Die nicht verlinkte Seite `/admin` erzeugt Bilder zu einem Ereignis (ein Wort wurde nach mindestens zehn Jahren
+wieder gesagt, aus `statistik.json`, oder zum ersten Mal, aus `neue-woerter.json`), einem Wort, einer Person oder
+einer festen Seite und
+veröffentlicht sie als Instagram-Post, Instagram-Story oder LinkedIn-Beitrag. Sie zeigt eine Vorschau der drei
+Formate, schlägt einen Beitragstext vor und startet den Workflow `.github/workflows/share.yml`, der die Bilder mit
+`frontend/scripts/share-post.mjs` erzeugt und veröffentlicht. Mit „Nur Bilder erzeugen“ wird nichts veröffentlicht;
+die Bilder liegen dann im Artefakt `bilder` des Laufs.
+
+Die Seite selbst ist statisch und hält keine Zugangsdaten. Wer sie benutzt, braucht einen fein granularen
+GitHub-Token mit Zugriff nur auf dieses Repository und der Berechtigung „Actions: Read and write“; er wird im Browser
+gespeichert. Die Zugangsdaten der Plattformen liegen als Secrets im Repository (Settings, Secrets and variables,
+Actions):
+
+| Secret | Inhalt |
+|---|---|
+| `INSTAGRAM_ACCESS_TOKEN` | langlebiger Token eines Instagram-Business- oder Creator-Kontos mit der Berechtigung `instagram_content_publish` |
+| `INSTAGRAM_USER_ID` | ID des Instagram-Kontos in der Graph API |
+| `LINKEDIN_ACCESS_TOKEN` | Token mit der Berechtigung `w_member_social` (eigenes Profil) oder `w_organization_social` (Unternehmensseite); läuft nach 60 Tagen ab |
+| `LINKEDIN_AUTHOR` | `urn:li:person:…` oder `urn:li:organization:…` |
+
+Als Variablen lassen sich `INSTAGRAM_API_HOST` (Standard `graph.facebook.com`, mit Instagram-Login
+`graph.instagram.com`), `INSTAGRAM_API_VERSION` (Standard `v23.0`) und `LINKEDIN_VERSION` (Standard `202510`, Format
+JJJJMM) setzen. Instagram lädt das Bild von einer öffentlichen Adresse; der Workflow legt es dafür im Release
+`teilen` ab.
+
+Der Workflow läuft nur, wenn ihn die Inhaberin oder der Inhaber des Repositorys startet; für alle anderen wird der
+Job übersprungen. Den Token sollte nur ein Browser speichern, den niemand sonst benutzt. Er liegt im Speicher der
+Adresse `ungeschneuer.github.io`, den alle GitHub-Pages-Seiten dieses Kontos teilen.
 
 ## Herkunft und Lizenz
 

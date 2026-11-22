@@ -7,6 +7,7 @@ import { Input } from '../ui/input';
 import { BarChart } from '../home/BarChart';
 import { ALL_TERMS, rankPersons } from '../../utils/persons';
 import { pageTitle } from '../../pageMeta';
+import { ShareImages } from '../ShareImages';
 
 const PAGE_SIZE = 100;
 const SHOWN_ATTRIBUTIONS = 4;
@@ -206,6 +207,8 @@ export default function PersonPage() {
           </p>
         )}
       </header>
+
+      <ShareImages image={`person/${id}`} fileName={id} />
 
       <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatTile label="Zum ersten Mal gesagt" value={formatNumber(person.words.length)} detail="Wörter" />
