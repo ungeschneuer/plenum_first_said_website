@@ -17,7 +17,7 @@ export const PAGES = [
     title: SITE_NAME,
     description: DEFAULT_DESCRIPTION,
     image: 'start',
-    heading: 'Wie oft sagt der Bundestag …?',
+    heading: 'Wie oft sagt der Bundestag\u00a0…?',
     caption: 'Jedes Wort aus den Plenarprotokollen seit 1949',
   },
   {
@@ -82,6 +82,14 @@ export const PAGES = [
     description: 'Datenschutzerklärung von Bundestag Wortschatz.',
     image: 'start',
   },
+];
+
+// Formats of the share images; each image name in og/ exists in every format, with the suffix before .png.
+// The link format is also the preview image of the page (og:image) and fits LinkedIn.
+export const SHARE_FORMATS = [
+  { key: 'link', suffix: '', width: 1200, height: 630, label: 'LinkedIn und Link-Vorschau' },
+  { key: 'post', suffix: '-post', width: 1080, height: 1350, label: 'Instagram-Post' },
+  { key: 'story', suffix: '-story', width: 1080, height: 1920, label: 'Instagram-Story' },
 ];
 
 // Images for pages that exist once per word or person; they are written from the data after each build.

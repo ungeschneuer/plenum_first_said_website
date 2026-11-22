@@ -5,6 +5,8 @@ import Chart from './Chart';
 import { SpeakerName } from './SpeakerName';
 import { formatGermanDate, formatLongDate, formatNumber } from '../utils/german';
 import { Skeleton } from './ui/skeleton';
+import { ShareImages } from './ShareImages';
+import { wordImageName } from '../pageMeta';
 import { Alert, AlertDescription } from './ui/alert';
 import { ToggleGroup, ToggleGroupItem } from './ui/toggle-group';
 
@@ -276,6 +278,7 @@ export default function WordTimeline() {
           </p>
         )}
       </header>
+      <ShareImages image={`wort/${wordImageName(details.word)}`} fileName={wordImageName(details.word)} />
       <FirstOccurrence details={details} timeline={timeline} />
       <WordForms forms={details.forms} lemma={details.word} />
       <FrequencyChart timeline={timeline} />
