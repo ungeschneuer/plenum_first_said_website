@@ -92,6 +92,22 @@ function updateCache(cacheDirectory, outputDirectory, images, formats) {
   writeFileSync(path.join(cacheDirectory, 'manifest.json'), JSON.stringify(manifest));
 }
 
+// Chromium sometimes returns a screenshot that repeats the top of the image from about 1,260 pixels on. The flag
+// strip (black, red, gold) is the only full-width row with these three colours, so a second one below it shows the
+// fault.
+async function repeatsTop(png) {
+  const { data, info } = await sharp(png).raw().toBuffer({ resolveWithObject: true });
+  const at = (x, y) => data.subarray((y * info.width + x) * info.channels, (y * info.width + x) * info.channels + 3);
+  const near = (pixel, [r, g, b]) => Math.abs(pixel[0] - r) + Math.abs(pixel[1] - g) + Math.abs(pixel[2] - b) < 30;
+  const third = Math.floor(info.width / 6);
+  for (let y = 40; y < info.height; y += 1) {
+    if (near(at(third, y), [0, 0, 0]) && near(at(3 * third, y), [221, 0, 0]) && near(at(5 * third, y), [255, 204, 0])) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // images: [[file without extension, card], ...]; every image is written in each format, with its suffix. With a
 // cache directory, images whose fingerprint is unchanged are copied from there instead of rendered.
 export async function renderCards(images, outputDirectory, formats = SHARE_FORMATS, { cacheDirectory } = {}) {
@@ -143,8 +159,13 @@ async function renderJobs(jobs, outputDirectory, fonts) {
       await page.evaluate(() => new Promise((resolve) => {
         requestAnimationFrame(() => requestAnimationFrame(resolve));
       }));
+      let screenshot = await page.screenshot();
+      for (let attempt = 1; attempt < 4 && await repeatsTop(screenshot); attempt += 1) {
+        await page.evaluate(() => new Promise((resolve) => { setTimeout(resolve, 100); }));
+        screenshot = await page.screenshot();
+      }
+      if (await repeatsTop(screenshot)) throw new Error(`Bild ${name}${format.suffix}: Aufnahme fehlerhaft`);
       // A palette of 64 colours keeps the image at about a quarter of the size without visible loss.
-      const screenshot = await page.screenshot();
       await sharp(screenshot).png({ palette: true, colours: 64, compressionLevel: 9, effort: 10 }).toFile(file);
     }
     await Promise.all([...pages.values()].map((page) => page.close()));
