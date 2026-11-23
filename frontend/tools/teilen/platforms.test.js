@@ -2,7 +2,8 @@ import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { linkedInCommentary, parseRequest, postToInstagram, postToLinkedIn, uploadToRelease } from './share-post.mjs';
+import { linkedInCommentary, postToInstagram, postToLinkedIn, uploadToRelease } from './platforms.mjs';
+import { checkRequest } from './server.mjs';
 
 function response(status, body, headers = {}) {
   return new Response(body === undefined ? '' : JSON.stringify(body), { status, headers });
@@ -26,13 +27,12 @@ function imageFile() {
   return file;
 }
 
-describe('share-post', () => {
+describe('platforms', () => {
   it('checks the request', () => {
-    const request = parseRequest(JSON.stringify({ name: 'wort-a', card: { heading: 'A' }, targets: ['linkedin'] }));
-    expect(request.targets).toEqual(['linkedin']);
-    expect(() => parseRequest(JSON.stringify({ name: '../x', card: { heading: 'A' } }))).toThrow('Name');
-    expect(() => parseRequest(JSON.stringify({ name: 'a', card: { heading: 'A' }, targets: ['x'] }))).toThrow('x');
-    expect(() => parseRequest(JSON.stringify({ name: 'a', card: {} }))).toThrow('heading');
+    expect(() => checkRequest({ name: 'monat-2026-10', slides: [{ heading: 'A' }], targets: ['instagram-carousel'] })).not.toThrow();
+    expect(() => checkRequest({ name: '../x', slides: [{ heading: 'A' }] })).toThrow('Name');
+    expect(() => checkRequest({ name: 'a', slides: [] })).toThrow('Keine Bilder');
+    expect(() => checkRequest({ name: 'a', slides: [{ heading: 'A' }], targets: ['x'] })).toThrow('x');
   });
 
   it('escapes LinkedIn commentary and keeps hashtags', () => {
@@ -61,7 +61,7 @@ describe('share-post', () => {
       response(200, { id: 'm1' }),
     ]);
     const id = await postToInstagram({
-      imageUrl: 'https://example.org/a.png',
+      imageUrls: ['https://example.org/a.png'],
       caption: 'Text',
       story: true,
       config: { host: 'graph.facebook.com', version: 'v23.0', token: 't', userId: '42' },
@@ -78,7 +78,7 @@ describe('share-post', () => {
   it('stops when Instagram rejects the image', async () => {
     const { request } = fakeFetch([response(200, { id: 'c1' }), response(200, { status_code: 'ERROR' })]);
     await expect(postToInstagram({
-      imageUrl: 'u', caption: '', story: false, config: { host: 'h', version: 'v', token: 't', userId: '1' }, fetch: request,
+      imageUrls: ['u'], caption: '', story: false, config: { host: 'h', version: 'v', token: 't', userId: '1' }, fetch: request,
     })).rejects.toThrow('ERROR');
   });
 
@@ -89,9 +89,9 @@ describe('share-post', () => {
       response(201, undefined, { 'x-restli-id': 'urn:li:share:9' }),
     ]);
     const id = await postToLinkedIn({
-      file: imageFile(),
+      files: [imageFile()],
       caption: 'Hallo #Bundestag',
-      altText: 'Bild',
+      altTexts: ['Bild'],
       config: { token: 't', author: 'urn:li:person:abc', version: '202510' },
       fetch: request,
     });
@@ -101,5 +101,40 @@ describe('share-post', () => {
     const post = JSON.parse(calls[2].body);
     expect(post).toMatchObject({ author: 'urn:li:person:abc', content: { media: { id: 'urn:li:image:1', altText: 'Bild' } } });
     expect(post.commentary).toBe('Hallo {hashtag|\\#|Bundestag}');
+  });
+
+  it('posts several images to Instagram as a carousel', async () => {
+    const { request, calls } = fakeFetch([
+      response(200, { id: 'a' }), response(200, { status_code: 'FINISHED' }),
+      response(200, { id: 'b' }), response(200, { status_code: 'FINISHED' }),
+      response(200, { id: 'k' }), response(200, { status_code: 'FINISHED' }),
+      response(200, { id: 'm' }),
+    ]);
+    const id = await postToInstagram({
+      imageUrls: ['u1', 'u2'], caption: 'Text', config: { host: 'h', version: 'v', token: 't', userId: '1' }, fetch: request, wait: async () => {},
+    });
+    expect(id).toBe('m');
+    expect(calls[0].body.get('is_carousel_item')).toBe('true');
+    expect(calls[4].body.get('media_type')).toBe('CAROUSEL');
+    expect(calls[4].body.get('children')).toBe('a,b');
+    expect(calls[4].body.get('caption')).toBe('Text');
+    expect(calls[6].body.get('creation_id')).toBe('k');
+  });
+
+  it('posts several images to LinkedIn in one post', async () => {
+    const { request, calls } = fakeFetch([
+      response(200, { value: { uploadUrl: 'https://upload.example/1', image: 'urn:li:image:1' } }),
+      new Response('', { status: 201 }),
+      response(200, { value: { uploadUrl: 'https://upload.example/2', image: 'urn:li:image:2' } }),
+      new Response('', { status: 201 }),
+      response(201, undefined, { 'x-restli-id': 'urn:li:share:7' }),
+    ]);
+    await postToLinkedIn({
+      files: [imageFile(), imageFile()], caption: 'x', altTexts: ['Eins', 'Zwei'],
+      config: { token: 't', author: 'urn:li:person:abc', version: '202510' }, fetch: request,
+    });
+    expect(JSON.parse(calls[4].body).content).toEqual({
+      multiImage: { images: [{ id: 'urn:li:image:1', altText: 'Eins' }, { id: 'urn:li:image:2', altText: 'Zwei' }] },
+    });
   });
 });

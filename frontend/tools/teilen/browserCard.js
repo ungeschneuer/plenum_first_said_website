@@ -1,4 +1,4 @@
-// cardHtml with the fonts and hyphenation of the browser, for the previews of the admin view. Loaded only there:
+// cardHtml with the fonts and hyphenation of the browser, for the previews of the local share tool. Loaded only there:
 // the German hyphenation patterns are about 750 kilobytes.
 import hyphenDe from 'hyphen/de';
 import latin400 from '@fontsource/inter/files/inter-latin-400-normal.woff2?url';
@@ -7,7 +7,7 @@ import latin800 from '@fontsource/inter/files/inter-latin-800-normal.woff2?url';
 import latinExt400 from '@fontsource/inter/files/inter-latin-ext-400-normal.woff2?url';
 import latinExt600 from '@fontsource/inter/files/inter-latin-ext-600-normal.woff2?url';
 import latinExt800 from '@fontsource/inter/files/inter-latin-ext-800-normal.woff2?url';
-import { cardHtml } from './card.js';
+import { cardHtml } from '../../src/share/card.js';
 
 const FONT_FILES = [[400, latin400], [600, latin600], [800, latin800], [400, latinExt400], [600, latinExt600], [800, latinExt800]];
 

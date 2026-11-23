@@ -131,6 +131,10 @@ async function renderJobs(jobs, outputDirectory, fonts) {
       await page.setContent(cardHtml(card, { fonts, hyphenate: hyphenateSync, formatKey: format.key }));
       await page.evaluate(() => document.fonts.ready);
       await page.evaluate(fitText, fitOptions(format.key));
+      // Two animation frames, so the screenshot shows the fitted layout and no tiles of the previous image.
+      await page.evaluate(() => new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      }));
       // A palette of 64 colours keeps the image at about a quarter of the size without visible loss.
       const screenshot = await page.screenshot();
       await sharp(screenshot).png({ palette: true, colours: 64, compressionLevel: 9, effort: 10 }).toFile(file);

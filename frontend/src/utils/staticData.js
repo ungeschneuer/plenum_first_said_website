@@ -256,3 +256,12 @@ export async function getStatus() {
     last_date: protocols.at(-1)?.datum,
   };
 }
+
+// Highlights of the last months (pipeline/month_highlights.py), for the local share tool.
+export async function getMonths() {
+  return loadJson('monate.json');
+}
+
+export async function getProtocols() {
+  return loadProtocols();
+}
