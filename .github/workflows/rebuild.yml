@@ -66,6 +66,7 @@ jobs:
           python pipeline/export_static_data.py --fetch-dip --fetch-dip-from 1949-01-01 --output static-data
           python pipeline/speaker_statistics.py static-data
           python pipeline/word_statistics.py static-data
+          python pipeline/month_highlights.py static-data
 
       - name: Protokollarchive und PDFs sichern
         if: always()

@@ -80,3 +80,4 @@ backend/backups/
 .claude/
 static-data*/
 frontend/public/data
+

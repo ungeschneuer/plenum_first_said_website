@@ -100,6 +100,7 @@ jobs:
           # Die Statistiken hängen nicht an den Zählregeln und werden bei jedem Lauf neu geschrieben.
           python pipeline/speaker_statistics.py static-data
           python pipeline/word_statistics.py static-data
+          python pipeline/month_highlights.py static-data
 
       # Ausbleibende Protokolle halten die Veröffentlichung nicht auf; der Lauf schlägt erst am Ende fehl.
       - name: Aktualität prüfen

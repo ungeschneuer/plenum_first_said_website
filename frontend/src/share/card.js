@@ -85,7 +85,7 @@ export function fitText({ maxLines, smallSize, minSize, hyphenateBelow, minScale
   const main = doc.querySelector('main');
   const column = doc.querySelector('.text');
   const heading = doc.querySelector('h1');
-  const small = [...doc.querySelectorAll('p, .detail')];
+  const small = [...doc.querySelectorAll('p, .detail, .items li')];
   const smallSizes = small.map((element) => parseFloat(getComputedStyle(element).fontSize));
   const headingFits = () => {
     const size = parseFloat(heading.style.fontSize || getComputedStyle(heading).fontSize);
@@ -112,8 +112,8 @@ export function fitText({ maxLines, smallSize, minSize, hyphenateBelow, minScale
   }
   // In the portrait formats the chart gives up to 40 percent of its height before the texts get smaller.
   const chart = doc.querySelector('.chart svg');
-  const chartHeight = chart.getBoundingClientRect().height;
-  for (let share = 0.95; portrait && !columnFits() && share >= 0.6; share -= 0.05) {
+  const chartHeight = chart?.getBoundingClientRect().height ?? 0;
+  for (let share = 0.95; chart && portrait && !columnFits() && share >= 0.6; share -= 0.05) {
     chart.style.height = `${chartHeight * share}px`;
   }
   for (let scale = 0.95; !columnFits() && scale >= minScale; scale -= 0.05) {
@@ -143,6 +143,10 @@ export function cardHtml(card, { fonts, hyphenate, formatKey = 'link' }) {
   const px = (size) => `${Math.round(size * layout.textScale)}px`;
   const motif = Array.isArray(card.motif) ? card.motif : MOTIFS[card.motif] ?? MOTIFS.start;
   const details = (card.details ?? []).map((line) => `<div class="detail">${escapeHtml(line)}</div>`).join('');
+  // A ranked list (monthly reviews): [{text, value}, ...]; a card with motif null has no chart.
+  const items = (card.items ?? []).map((item) =>
+    `<li><span class="item-text">${escapeHtml(hyphenate(item.text))}</span><span class="item-value">${escapeHtml(item.value ?? '')}</span></li>`).join('');
+  const hasChart = card.motif !== null;
   const chartLabel = card.chartLabel ? `<div class="chart-label">${escapeHtml(card.chartLabel)}</div>` : '';
   return `<!doctype html>
 <html lang="de"><head><meta charset="utf-8"><style>
@@ -169,7 +173,12 @@ export function cardHtml(card, { fonts, hyphenate, formatKey = 'link' }) {
            ${layout.portrait ? 'margin-top: auto;' : 'padding-top: 40px;'} }
   .chart svg { border-bottom: ${px(3)} solid #a1a1aa; }
   .chart-label { font-size: ${px(20)}; color: ${GREY}; text-align: right; }
-  .address { flex: none; font-size: 28px; font-weight: 600; color: ${GREY}; overflow-wrap: anywhere; }
+  .items { list-style: none; padding: 0; display: flex; flex-direction: column; border-top: ${px(2)} solid ${LIGHT_GREY}; }
+  .items li { display: flex; justify-content: space-between; align-items: baseline; gap: ${px(24)};
+              padding: ${px(12)} 0; border-bottom: ${px(2)} solid ${LIGHT_GREY}; font-size: ${px(28)}; line-height: 1.25; }
+  .item-text { font-weight: 700; min-width: 0; hyphens: manual; overflow-wrap: anywhere; }
+  .item-value { color: ${GREY}; text-align: right; flex: none; max-width: 55%; }
+  .address { flex: none; font-size: 28px; font-weight: 600; color: ${GREY}; overflow-wrap: anywhere; ${hasChart ? '' : 'margin-top: auto;'} }
 </style></head><body>
   <div class="flag"><span style="background:${BLACK}"></span>
     <span style="background:${RED}"></span><span style="background:${GOLD}"></span></div>
@@ -179,8 +188,9 @@ export function cardHtml(card, { fonts, hyphenate, formatKey = 'link' }) {
       <h1>${escapeHtml(hyphenate(card.heading))}</h1>
       ${card.caption ? `<p>${escapeHtml(card.caption)}</p>` : ''}
       ${details ? `<div class="details">${details}</div>` : ''}
+      ${items ? `<ol class="items">${items}</ol>` : ''}
     </div>
-    <div class="chart">${bars(motif, ...layout.chart, Array.isArray(card.motif) ? card.highlight : undefined)}${chartLabel}</div>
+    ${hasChart ? `<div class="chart">${bars(motif, ...layout.chart, Array.isArray(card.motif) ? card.highlight : undefined)}${chartLabel}</div>` : ''}
     ${layout.portrait ? `<div class="address">${escapeHtml(SITE_ADDRESS)}</div>` : ''}
   </main>
 </body></html>`;

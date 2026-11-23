@@ -92,6 +92,22 @@ function updateCache(cacheDirectory, outputDirectory, images, formats) {
   writeFileSync(path.join(cacheDirectory, 'manifest.json'), JSON.stringify(manifest));
 }
 
+// Chromium sometimes returns a screenshot that repeats the top of the image from about 1,260 pixels on. The flag
+// strip (black, red, gold) is the only full-width row with these three colours, so a second one below it shows the
+// fault.
+async function repeatsTop(png) {
+  const { data, info } = await sharp(png).raw().toBuffer({ resolveWithObject: true });
+  const at = (x, y) => data.subarray((y * info.width + x) * info.channels, (y * info.width + x) * info.channels + 3);
+  const near = (pixel, [r, g, b]) => Math.abs(pixel[0] - r) + Math.abs(pixel[1] - g) + Math.abs(pixel[2] - b) < 30;
+  const third = Math.floor(info.width / 6);
+  for (let y = 40; y < info.height; y += 1) {
+    if (near(at(third, y), [0, 0, 0]) && near(at(3 * third, y), [221, 0, 0]) && near(at(5 * third, y), [255, 204, 0])) {
+      return true;
+    }
+  }
+  return false;
+}
+
 // images: [[file without extension, card], ...]; every image is written in each format, with its suffix. With a
 // cache directory, images whose fingerprint is unchanged are copied from there instead of rendered.
 export async function renderCards(images, outputDirectory, formats = SHARE_FORMATS, { cacheDirectory } = {}) {
@@ -117,25 +133,42 @@ export async function renderCards(images, outputDirectory, formats = SHARE_FORMA
 
 async function renderJobs(jobs, outputDirectory, fonts) {
   const browser = await chromium.launch();
-  const context = await browser.newContext({ deviceScaleFactor: 1 });
-  await serveFonts(context);
+  // Every format gets its own context with a fixed viewport. Resizing a page between images made Chromium return
+  // screenshots that repeated the top of the image from some height on.
+  const contexts = new Map();
+  for (const format of new Set(jobs.map(([, , jobFormat]) => jobFormat))) {
+    const context = await browser.newContext({ viewport: { width: format.width, height: format.height }, deviceScaleFactor: 1 });
+    await serveFonts(context);
+    contexts.set(format, context);
+  }
   let next = 0;
   async function worker() {
-    const page = await context.newPage();
+    const pages = new Map();
     while (next < jobs.length) {
       const [name, card, format] = jobs[next];
       next += 1;
       const file = path.join(outputDirectory, `${name}${format.suffix}.png`);
       mkdirSync(path.dirname(file), { recursive: true });
-      await page.setViewportSize({ width: format.width, height: format.height });
+      if (!pages.has(format)) pages.set(format, await contexts.get(format).newPage());
+      const page = pages.get(format);
       await page.setContent(cardHtml(card, { fonts, hyphenate: hyphenateSync, formatKey: format.key }));
-      await page.evaluate(() => document.fonts.ready);
+      // document.fonts.ready does not wait for fonts the page has not requested yet; loading every face first makes
+      // fitText measure with Inter.
+      await page.evaluate(() => Promise.all([...document.fonts].map((face) => face.load())));
       await page.evaluate(fitText, fitOptions(format.key));
+      await page.evaluate(() => new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      }));
+      let screenshot = await page.screenshot();
+      for (let attempt = 1; attempt < 4 && await repeatsTop(screenshot); attempt += 1) {
+        await page.evaluate(() => new Promise((resolve) => { setTimeout(resolve, 100); }));
+        screenshot = await page.screenshot();
+      }
+      if (await repeatsTop(screenshot)) throw new Error(`Bild ${name}${format.suffix}: Aufnahme fehlerhaft`);
       // A palette of 64 colours keeps the image at about a quarter of the size without visible loss.
-      const screenshot = await page.screenshot();
       await sharp(screenshot).png({ palette: true, colours: 64, compressionLevel: 9, effort: 10 }).toFile(file);
     }
-    await page.close();
+    await Promise.all([...pages.values()].map((page) => page.close()));
   }
   try {
     await Promise.all(Array.from({ length: Math.min(PARALLEL_PAGES, jobs.length) }, worker));
