@@ -81,5 +81,3 @@ backend/backups/
 static-data*/
 frontend/public/data
 
-# Bilder des lokalen Teilen-Werkzeugs
-frontend/teilen-ausgabe/

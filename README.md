@@ -23,7 +23,7 @@ Vite) liest sie direkt. Ein Workflow schreibt die Daten täglich fort und veröf
 | `pipeline/month_highlights.py` | Höhepunkte der letzten zwölf Monate für Monatsrückblicke (neue Wörter, Wiederkehrer, Jubiläen, Trends); läuft nach jedem Export und gehört nicht zu den Zählregeln |
 | `frontend/` | die Seite; `src/utils/staticData.js` liest die Dateien |
 | `frontend/src/pageMeta.js` | Titel, Beschreibung und Vorschaubild jeder Seite; `frontend/scripts/page-html.mjs` schreibt daraus nach dem Bau eine HTML-Datei je Seite, auch je Person und je neuem Wort, damit Links die passende Vorschau zeigen |
-| `frontend/scripts/og-images.mjs` | erzeugt die Vorschau- und Teilen-Bilder mit Playwright (Gestaltung in `frontend/src/share/card.js`, auch vom lokalen Werkzeug zum Teilen genutzt), jeweils als Link-Vorschau und für LinkedIn (1200 × 630), Instagram-Post (1080 × 1350, Endung `-post`) und Instagram-Story (1080 × 1920, Endung `-story`); Personen- und Wortseiten bieten sie zum Herunterladen an: ohne Argument die Bilder der festen Seiten in `frontend/public/og/`, die nach einer Änderung der Texte neu erzeugt und eingecheckt werden; mit `--dist dist` beim Veröffentlichen ein Bild je Person (Name, Zahl der zuerst gesagten Wörter, Balken je Wahlperiode) und je neuem Wort (erstes Vorkommen und erste Person) |
+| `frontend/scripts/og-images.mjs` | erzeugt die Vorschau- und Teilen-Bilder mit Playwright (Gestaltung in `frontend/src/share/card.js`, auch vom Werkzeug zum Teilen genutzt), jeweils als Link-Vorschau und für LinkedIn (1200 × 630), Instagram-Post (1080 × 1350, Endung `-post`) und Instagram-Story (1080 × 1920, Endung `-story`); Personen- und Wortseiten bieten sie zum Herunterladen an: ohne Argument die Bilder der festen Seiten in `frontend/public/og/`, die nach einer Änderung der Texte neu erzeugt und eingecheckt werden; mit `--dist dist` beim Veröffentlichen ein Bild je Person (Name, Zahl der zuerst gesagten Wörter, Balken je Wahlperiode) und je neuem Wort (erstes Vorkommen und erste Person) |
 | `.github/workflows/pages.yml` | täglich: Datenstand aus dem Release `daten` laden, neue Protokolle aus DIP aufnehmen, sichern, veröffentlichen; startet den Neuaufbau, wenn sich die Zählregeln geändert haben, und schlägt fehl, wenn seit Wochen kein neues Protokoll kam (`pipeline/check_freshness.py`) |
 | `.github/workflows/rebuild.yml` | alle Protokolle neu aus DIP zählen, mit dem bisherigen Datenstand vergleichen (`pipeline/compare_data.py`) und ihn ersetzen; nötig, wenn sich der Fingerabdruck der Zählregeln (`pipeline/rules_version.py`) ändert |
 
@@ -81,37 +81,10 @@ Ohne Netz lässt `--skip-speakers` die Rednersuche aus. Einen API-Schlüssel fü
 
 ## Teilen auf Instagram und LinkedIn
 
-Für Beiträge auf Instagram und LinkedIn gibt es ein lokales Werkzeug, das nicht Teil der veröffentlichten Seite ist.
-Es liest die Daten der veröffentlichten Seite, zeigt eine Vorschau, speichert die Bilder im Ordner
-`frontend/teilen-ausgabe/` und veröffentlicht sie mit Zugangsdaten, die nur auf dem eigenen Rechner liegen.
-
-```bash
-cd frontend && npm ci
-npx playwright install chromium
-cp tools/teilen/env.example .env.teilen   # Zugangsdaten eintragen
-npm run teilen                            # http://localhost:5180
-```
-
-Das Werkzeug kennt zwei Arten von Beiträgen:
-
-| Art | Inhalt | Ziele |
-|---|---|---|
-| Einzelnes Bild | ein Ereignis (Wort nach mindestens zehn Jahren wieder gesagt, neues Wort), ein beliebiges Wort, eine Person oder eine feste Seite | Instagram-Post (1080 × 1350), Instagram-Story (1080 × 1920), LinkedIn (1200 × 630) |
-| Monatsrückblick | Titelbild mit Sitzungen und Wörtern, neue Wörter, Personen mit den meisten neuen Wörtern, Wiederkehrer, runde Zahlen (100., 1.000. Nennung), Trends, häufigste Wörter; aus `monate.json` | Instagram-Karussell, LinkedIn-Beitrag mit mehreren Bildern (je 1080 × 1350) |
-
-„Bilder speichern“ erzeugt nur die Dateien. „Veröffentlichen“ fragt nach und postet dann über die Instagram Graph API
-und die LinkedIn Posts API. Die Zugangsdaten stehen in `frontend/.env.teilen` (in `.gitignore`); die Vorlage
-`frontend/tools/teilen/env.example` erklärt die Einträge:
-
-| Eintrag | Inhalt |
-|---|---|
-| `INSTAGRAM_ACCESS_TOKEN`, `INSTAGRAM_USER_ID` | Token eines Instagram-Business- oder Creator-Kontos mit `instagram_content_publish` und die ID des Kontos |
-| `GITHUB_TOKEN` | Instagram lädt Bilder von einer öffentlichen Adresse; das Werkzeug legt sie dafür im Release `teilen` ab. Fein granularer Token nur für dieses Repository mit „Contents: Read and write“ |
-| `LINKEDIN_ACCESS_TOKEN`, `LINKEDIN_AUTHOR` | Token mit `w_member_social` (Profil) oder `w_organization_social` (Unternehmensseite); `urn:li:person:…` oder `urn:li:organization:…`; der Token läuft nach 60 Tagen ab |
-
-Optional sind `INSTAGRAM_API_HOST` (Standard `graph.facebook.com`, mit Instagram-Login `graph.instagram.com`),
-`INSTAGRAM_API_VERSION` (Standard `v23.0`), `LINKEDIN_VERSION` (Standard `202510`) und `TEILEN_DATA_URL` für eine
-andere Datenquelle, etwa einen lokalen Export. Der Server des Werkzeugs hört nur auf `localhost`.
+Beiträge für Instagram und LinkedIn entstehen mit einem lokalen Werkzeug in einem eigenen Repository,
+[bundestag-wortschatz-teilen](https://github.com/ungeschneuer/bundestag-wortschatz-teilen). Es liest die
+veröffentlichten Daten, darunter `monate.json` für Monatsrückblicke, und nutzt dieselbe Gestaltung der Bilder
+(`frontend/src/share/card.js`). Die Seite selbst enthält keine Zugangsdaten und keine Funktion zum Veröffentlichen.
 
 ## Herkunft und Lizenz
 

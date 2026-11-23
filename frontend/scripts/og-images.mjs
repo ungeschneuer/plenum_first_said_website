@@ -117,21 +117,29 @@ export async function renderCards(images, outputDirectory, formats = SHARE_FORMA
 
 async function renderJobs(jobs, outputDirectory, fonts) {
   const browser = await chromium.launch();
-  const context = await browser.newContext({ deviceScaleFactor: 1 });
-  await serveFonts(context);
+  // Every format gets its own context with a fixed viewport. Resizing a page between images made Chromium return
+  // screenshots that repeated the top of the image from some height on.
+  const contexts = new Map();
+  for (const format of new Set(jobs.map(([, , jobFormat]) => jobFormat))) {
+    const context = await browser.newContext({ viewport: { width: format.width, height: format.height }, deviceScaleFactor: 1 });
+    await serveFonts(context);
+    contexts.set(format, context);
+  }
   let next = 0;
   async function worker() {
-    const page = await context.newPage();
+    const pages = new Map();
     while (next < jobs.length) {
       const [name, card, format] = jobs[next];
       next += 1;
       const file = path.join(outputDirectory, `${name}${format.suffix}.png`);
       mkdirSync(path.dirname(file), { recursive: true });
-      await page.setViewportSize({ width: format.width, height: format.height });
+      if (!pages.has(format)) pages.set(format, await contexts.get(format).newPage());
+      const page = pages.get(format);
       await page.setContent(cardHtml(card, { fonts, hyphenate: hyphenateSync, formatKey: format.key }));
-      await page.evaluate(() => document.fonts.ready);
+      // document.fonts.ready does not wait for fonts the page has not requested yet; loading every face first makes
+      // fitText measure with Inter.
+      await page.evaluate(() => Promise.all([...document.fonts].map((face) => face.load())));
       await page.evaluate(fitText, fitOptions(format.key));
-      // Two animation frames, so the screenshot shows the fitted layout and no tiles of the previous image.
       await page.evaluate(() => new Promise((resolve) => {
         requestAnimationFrame(() => requestAnimationFrame(resolve));
       }));
@@ -139,7 +147,7 @@ async function renderJobs(jobs, outputDirectory, fonts) {
       const screenshot = await page.screenshot();
       await sharp(screenshot).png({ palette: true, colours: 64, compressionLevel: 9, effort: 10 }).toFile(file);
     }
-    await page.close();
+    await Promise.all([...pages.values()].map((page) => page.close()));
   }
   try {
     await Promise.all(Array.from({ length: Math.min(PARALLEL_PAGES, jobs.length) }, worker));

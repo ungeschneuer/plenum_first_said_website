@@ -257,7 +257,7 @@ export async function getStatus() {
   };
 }
 
-// Highlights of the last months (pipeline/month_highlights.py), for the local share tool.
+// Highlights of the last months (pipeline/month_highlights.py), read by the share tool (bundestag-wortschatz-teilen).
 export async function getMonths() {
   return loadJson('monate.json');
 }
